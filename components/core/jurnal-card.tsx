@@ -1,0 +1,1 @@
+//Widget khusus untuk menampilkan list jurnal harian siswa.

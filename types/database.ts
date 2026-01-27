@@ -1,0 +1,1 @@
+//Kamus data. Menjelaskan ke TypeScript bahwa data "Siswa" itu isinya harus ada Nama, NIS, dan Kelas agar tidak terjadi error saat coding.

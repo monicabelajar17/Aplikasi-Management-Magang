@@ -1,0 +1,1 @@
+//Menampilkan info di mana dia magang dan berapa nilai akhirnya.

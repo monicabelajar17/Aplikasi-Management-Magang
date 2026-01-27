@@ -1,0 +1,1 @@
+//Fungsinya: Mengecek setiap kali ada orang buka web. Kalau dia mencoba masuk ke /dashboard tapi belum login, middleware akan otomatis "menendang" dia kembali ke halaman /login.

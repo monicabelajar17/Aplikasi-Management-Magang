@@ -1,0 +1,1 @@
+//Tempat siswa menulis laporan harian dan upload foto bukti magang.

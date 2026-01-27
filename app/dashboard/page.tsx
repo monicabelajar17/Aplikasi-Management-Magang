@@ -1,0 +1,1 @@
+//Halaman ringkasan. Biasanya berisi statistik cepat (jumlah siswa aktif, jumlah jurnal hari ini).

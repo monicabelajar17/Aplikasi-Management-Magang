@@ -1,0 +1,1 @@
+//File konfigurasi. Tanpa file ini, web kamu tidak bisa "ngobrol" dengan database Supabase.
