@@ -1,1 +1,6 @@
-//Fungsinya: Mengecek setiap kali ada orang buka web. Kalau dia mencoba masuk ke /dashboard tapi belum login, middleware akan otomatis "menendang" dia kembali ke halaman /login.
+import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
+
+export function middleware(request: NextRequest) {
+  return NextResponse.next()
+}
