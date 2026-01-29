@@ -1,1 +1,0 @@
-//List siswa yang menjadi tanggung jawab guru tersebut.

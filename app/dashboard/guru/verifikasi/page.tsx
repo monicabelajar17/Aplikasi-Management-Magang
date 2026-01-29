@@ -1,1 +1,0 @@
-//Tempat guru menyetujui atau menolak jurnal harian siswa.
