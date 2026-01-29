@@ -1,23 +1,62 @@
-import { Users, Building, GraduationCap, BookOpen, MapPin, Phone } from "lucide-react"
+import { createClient } from "@/utils/supabase/server"
+import { Users, Building, GraduationCap, BookOpen, MapPin } from "lucide-react"
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const supabase = await createClient()
+
+  // 1. Ambil Angka Statistik secara Real-time
+  const { count: totalSiswa } = await supabase.from('siswa').select('*', { count: 'exact', head: true })
+  const { count: totalDudi } = await supabase.from('dudi').select('*', { count: 'exact', head: true })
+  const { count: siswaMagang } = await supabase.from('magang').select('*', { count: 'exact', head: true }).eq('status', 'aktif')
+  
+  // Ambil jumlah logbook hari ini
+  const today = new Date().toISOString().split('T')[0]
+  const { count: logbookToday } = await supabase.from('logbook').select('*', { count: 'exact', head: true }).eq('tanggal', today)
+
+  // 2. Ambil Magang Terbaru (Join Tabel)
+  const { data: recentMagang } = await supabase
+    .from('magang')
+    .select(`
+      id,
+      tanggal_mulai,
+      tanggal_selesai,
+      siswa ( nama ),
+      dudi ( nama_perusahaan )
+    `)
+    .order('created_at', { ascending: false })
+    .limit(2)
+
+  // 3. Ambil Logbook Paling Baru
+  const { data: recentLogbook } = await supabase
+    .from('logbook')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  // 4. Ambil Data DUDI (Yang tadi hilang/belum diambil)
+  const { data: dudiAktif } = await supabase
+    .from('dudi')
+    .select('*')
+    .limit(5)
+
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-extrabold text-[#0A2659]">Dashboard</h1>
-        <p className="text-slate-500 mt-1">Selamat datang di sistem pelaporan magang siswa SMK Brantas Karangkates</p>
+        <h1 className="text-3xl font-extrabold text-[#0A2659]">Dashboard Admin</h1>
+        <p className="text-slate-500 mt-1">Data real-time SMK Brantas Karangkates</p>
       </div>
 
       {/* STATS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Total Siswa" value="150" sub="Seluruh siswa terdaftar" icon={<Users className="text-cyan-500" />} />
-        <StatCard title="DUDI Partner" value="45" sub="Perusahaan mitra" icon={<Building className="text-blue-500" />} />
-        <StatCard title="Siswa Magang" value="120" sub="Sedang aktif magang" icon={<GraduationCap className="text-indigo-500" />} />
-        <StatCard title="Logbook Hari Ini" value="85" sub="Laporan masuk hari ini" icon={<BookOpen className="text-emerald-500" />} />
+        <StatCard title="Total Siswa" value={totalSiswa?.toString() || "0"} sub="Seluruh siswa terdaftar" icon={<Users className="text-cyan-500" />} />
+        <StatCard title="DUDI Partner" value={totalDudi?.toString() || "0"} sub="Perusahaan mitra" icon={<Building className="text-blue-500" />} />
+        <StatCard title="Siswa Magang" value={siswaMagang?.toString() || "0"} sub="Sedang aktif magang" icon={<GraduationCap className="text-indigo-500" />} />
+        <StatCard title="Logbook" value={logbookToday?.toString() || "0"} sub="Laporan hari ini" icon={<BookOpen className="text-emerald-500" />} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* LEFT COL: MAGANG TERBARU */}
+        {/* LEFT COL: MAGANG & LOGBOOK */}
         <div className="lg:col-span-2 space-y-6">
           <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
             <div className="flex items-center gap-2 mb-6">
@@ -25,8 +64,14 @@ export default function DashboardPage() {
               <h3 className="font-bold text-[#0A2659]">Magang Terbaru</h3>
             </div>
             <div className="space-y-4">
-              <ListMember name="Ahmad Rizki" company="PT. Teknologi Nusantara" date="15/1/2024 - 15/4/2024" />
-              <ListMember name="Siti Nurhaliza" company="CV. Digital Kreatif" date="20/1/2024 - 20/4/2024" />
+              {recentMagang && recentMagang.length > 0 ? recentMagang.map((m: any) => (
+                <ListMember 
+                  key={m.id} 
+                  name={m.siswa?.nama || "No Name"} 
+                  company={m.dudi?.nama_perusahaan || "No Company"} 
+                  date={`${m.tanggal_mulai} - ${m.tanggal_selesai}`} 
+                />
+              )) : <p className="text-sm text-slate-400">Belum ada data magang.</p>}
             </div>
           </section>
 
@@ -35,27 +80,35 @@ export default function DashboardPage() {
               <BookOpen className="text-emerald-500" size={20} />
               <h3 className="font-bold text-[#0A2659]">Logbook Terbaru</h3>
             </div>
-            {/* Contoh Logbook Item */}
-            <div className="p-4 border-l-4 border-emerald-500 bg-emerald-50/30 rounded-r-xl">
-              <div className="flex justify-between items-start">
-                <p className="font-semibold text-slate-800 text-sm">Mempelajari sistem database dan backup data</p>
-                <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full font-bold">DISETUJUI</span>
+            {recentLogbook ? (
+              <div className="p-4 border-l-4 border-emerald-500 bg-emerald-50/30 rounded-r-xl">
+                <div className="flex justify-between items-start">
+                  <p className="font-semibold text-slate-800 text-sm">{recentLogbook.kegiatan}</p>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full font-bold uppercase">
+                    {recentLogbook.status_verifikasi}
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">{recentLogbook.tanggal}</p>
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">21/1/2024</p>
-              <p className="text-[11px] text-orange-600 mt-2 font-medium">Kendala: Tidak ada kendala berarti</p>
-            </div>
+            ) : <p className="text-sm text-slate-400">Belum ada aktivitas.</p>}
           </section>
         </div>
 
-        {/* RIGHT COL: DUDI AKTIF */}
+        {/* RIGHT COL: DUDI PARTNER */}
         <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
           <div className="flex items-center gap-2 mb-6">
             <Building className="text-orange-500" size={20} />
-            <h3 className="font-bold text-[#0A2659]">DUDI Aktif</h3>
+            <h3 className="font-bold text-[#0A2659]">DUDI Partner</h3>
           </div>
           <div className="space-y-6">
-            <DudiItem name="PT. Teknologi Nusantara" address="Jl. HR Muhammad No. 123" count={8} />
-            <DudiItem name="CV. Digital Kreatif" address="Jl. Pemuda No. 45" count={5} />
+            {dudiAktif && dudiAktif.length > 0 ? dudiAktif.map((dudi: any) => (
+              <DudiItem 
+                key={dudi.id}
+                name={dudi.nama_perusahaan} 
+                address={dudi.alamat} 
+                count={0} 
+              />
+            )) : <p className="text-xs text-slate-400 text-center py-4">Belum ada mitra.</p>}
           </div>
         </section>
       </div>
@@ -63,8 +116,7 @@ export default function DashboardPage() {
   )
 }
 
-// --- REUSABLE COMPONENTS (Agar Belajar TypeScript Lebih Enak) ---
-
+// --- REUSABLE COMPONENTS ---
 function StatCard({ title, value, sub, icon }: { title: string, value: string, sub: string, icon: any }) {
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden">
@@ -81,7 +133,7 @@ function ListMember({ name, company, date }: { name: string, company: string, da
     <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-[#E6EFFF] transition-colors group">
       <div className="flex items-center gap-4">
         <div className="h-10 w-10 bg-cyan-500 rounded-lg flex items-center justify-center text-white font-bold group-hover:scale-110 transition-transform">
-          {name.charAt(0)}
+          {name ? name.charAt(0) : "?"}
         </div>
         <div>
           <p className="font-bold text-slate-800 text-sm">{name}</p>
