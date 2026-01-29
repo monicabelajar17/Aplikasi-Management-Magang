@@ -1,6 +1,49 @@
+import { createClient } from "@/utils/supabase/server"
 import { Users, Building, GraduationCap, BookOpen, ClipboardList } from "lucide-react"
 
-export default function GuruDashboardPage() {
+export default async function GuruDashboardPage() {
+  const supabase = await createClient()
+
+  // 1. Fetch Stats (Sama dengan Admin, atau bisa difilter berdasarkan Guru ID jika perlu)
+  const { count: totalSiswa } = await supabase.from('siswa').select('*', { count: 'exact', head: true })
+  const { count: totalDudi } = await supabase.from('dudi').select('*', { count: 'exact', head: true })
+  const { count: siswaMagang } = await supabase.from('magang').select('*', { count: 'exact', head: true }).eq('status', 'aktif')
+  
+  const today = new Date().toISOString().split('T')[0]
+  const { count: logbookToday } = await supabase.from('logbook').select('*', { count: 'exact', head: true }).eq('tanggal', today)
+
+  // 2. Fetch Magang Terbaru
+  const { data: recentMagang } = await supabase
+    .from('magang')
+    .select(`
+      id,
+      tanggal_mulai,
+      tanggal_selesai,
+      siswa ( nama ),
+      dudi ( nama_perusahaan )
+    `)
+    .order('created_at', { ascending: false })
+    .limit(2)
+
+  // 3. Fetch Logbook Terbaru (Untuk diverifikasi Guru)
+  const { data: recentLogbooks } = await supabase
+    .from('logbook')
+    .select(`
+      id,
+      kegiatan,
+      tanggal,
+      status_verifikasi,
+      kendala,
+      magang (
+        siswa ( nama )
+      )
+    `)
+    .order('created_at', { ascending: false })
+    .limit(2)
+
+  // 4. Fetch DUDI Aktif
+  const { data: dudiList } = await supabase.from('dudi').select('id, nama_perusahaan, alamat').limit(4)
+
   return (
     <div className="space-y-8">
       <div>
@@ -8,65 +51,67 @@ export default function GuruDashboardPage() {
         <p className="text-slate-500 mt-1">Ringkasan aktivitas pemantauan magang siswa</p>
       </div>
 
-      {/* STATS GRID - Sama dengan Admin */}
+      {/* STATS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Total Siswa" value="150" sub="Seluruh siswa terdaftar" icon={<Users className="text-cyan-500" />} />
-        <StatCard title="DUDI Partner" value="45" sub="Perusahaan mitra" icon={<Building className="text-blue-500" />} />
-        <StatCard title="Siswa Magang" value="120" sub="Sedang aktif magang" icon={<GraduationCap className="text-indigo-500" />} />
-        <StatCard title="Logbook Hari Ini" value="85" sub="Laporan masuk hari ini" icon={<BookOpen className="text-emerald-500" />} />
+        <StatCard title="Total Siswa" value={totalSiswa?.toString() || "0"} sub="Siswa terdaftar" icon={<Users className="text-cyan-500" />} />
+        <StatCard title="DUDI Partner" value={totalDudi?.toString() || "0"} sub="Perusahaan mitra" icon={<Building className="text-blue-500" />} />
+        <StatCard title="Siswa Magang" value={siswaMagang?.toString() || "0"} sub="Aktif magang" icon={<GraduationCap className="text-indigo-500" />} />
+        <StatCard title="Logbook Hari Ini" value={logbookToday?.toString() || "0"} sub="Laporan masuk" icon={<BookOpen className="text-emerald-500" />} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-          {/* Bagian Magang Terbaru - Label diganti 'AM' sesuai gambar */}
+          {/* Magang Terbaru */}
           <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
             <div className="flex items-center gap-2 mb-6">
               <GraduationCap className="text-cyan-500" size={20} />
               <h3 className="font-bold text-[#0A2659]">Magang Terbaru</h3>
             </div>
             <div className="space-y-4">
-              <ListMember name="Ahmad Rizki" company="PT. Teknologi Nusantara" date="15/1/2024 - 15/4/2024" badge="AM" />
-              <ListMember name="Siti Nurhaliza" company="CV. Digital Kreatif" date="20/1/2024 - 20/4/2024" badge="AM" />
+              {recentMagang?.map((m: any) => (
+                <ListMember 
+                  key={m.id}
+                  name={m.siswa?.nama} 
+                  company={m.dudi?.nama_perusahaan} 
+                  date={`${m.tanggal_mulai} - ${m.tanggal_selesai}`} 
+                  badge="AM" 
+                />
+              ))}
             </div>
           </section>
 
-          {/* Bagian Logbook - Sesuai gambar kedua */}
+          {/* Logbook Terbaru */}
           <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
             <div className="flex items-center gap-2 mb-6">
               <ClipboardList className="text-emerald-500" size={20} />
               <h3 className="font-bold text-[#0A2659]">Logbook Terbaru</h3>
             </div>
             <div className="space-y-4">
-              <LogbookItem 
-                title="Mempelajari sistem database dan melakukan backup data harian" 
-                date="21/1/2024" 
-                status="Disetujui" 
-                statusColor="bg-emerald-100 text-emerald-600"
-                kendala="Tidak ada kendala berarti"
-              />
-              <LogbookItem 
-                title="Membuat design mockup untuk website perusahaan" 
-                date="21/1/2024" 
-                status="Pending" 
-                statusColor="bg-amber-100 text-amber-600"
-                kendala="Software design masih belum familiar"
-              />
+              {recentLogbooks?.map((log: any) => (
+                <LogbookItem 
+                  key={log.id}
+                  studentName={log.magang?.siswa?.nama}
+                  title={log.kegiatan} 
+                  date={log.tanggal} 
+                  status={log.status_verifikasi} 
+                  statusColor={log.status_verifikasi === 'disetujui' ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"}
+                  kendala={log.kendala || "Tidak ada kendala"}
+                />
+              ))}
             </div>
           </section>
         </div>
 
-        {/* List DUDI Aktif di Sisi Kanan */}
+        {/* List DUDI Aktif */}
         <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
           <div className="flex items-center gap-2 mb-6">
             <Building className="text-orange-500" size={20} />
             <h3 className="font-bold text-[#0A2659]">DUDI Aktif</h3>
           </div>
           <div className="space-y-4">
-             {/* Data sesuai list di gambar */}
-            <DudiItem name="PT. Teknologi Nusantara" count={8} />
-            <DudiItem name="CV. Digital Kreatif" count={5} />
-            <DudiItem name="PT. Inovasi Mandiri" count={12} />
-            <DudiItem name="PT. Solusi Informatika" count={7} />
+            {dudiList?.map((dudi: any) => (
+              <DudiItem key={dudi.id} name={dudi.nama_perusahaan} address={dudi.alamat} count={0} />
+            ))}
           </div>
         </section>
       </div>
@@ -75,8 +120,6 @@ export default function GuruDashboardPage() {
 }
 
 // --- Komponen Pendukung ---
-// (Tips: Di dunia nyata, komponen ini sebaiknya ditaruh di folder /components agar bisa dipakai Admin & Guru sekaligus)
-
 function StatCard({ title, value, sub, icon }: any) {
   return (
     <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
@@ -95,7 +138,7 @@ function ListMember({ name, company, date, badge }: any) {
     <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
       <div className="flex items-center gap-4">
         <div className="h-10 w-10 bg-cyan-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-          {name.charAt(0)}
+          {name?.charAt(0)}
         </div>
         <div>
           <p className="font-bold text-slate-800 text-sm">{name}</p>
@@ -108,12 +151,15 @@ function ListMember({ name, company, date, badge }: any) {
   )
 }
 
-function LogbookItem({ title, date, status, statusColor, kendala }: any) {
+function LogbookItem({ studentName, title, date, status, statusColor, kendala }: any) {
   return (
     <div className="p-4 border border-slate-100 rounded-xl space-y-2">
       <div className="flex justify-between items-start gap-4">
-        <h4 className="text-sm font-semibold text-slate-700 leading-snug">{title}</h4>
-        <span className={`text-[10px] px-2 py-1 rounded-md font-bold whitespace-nowrap ${statusColor}`}>{status}</span>
+        <div>
+          <p className="text-[10px] font-bold text-cyan-600 mb-1">{studentName?.toUpperCase()}</p>
+          <h4 className="text-sm font-semibold text-slate-700 leading-snug">{title}</h4>
+        </div>
+        <span className={`text-[10px] px-2 py-1 rounded-md font-bold whitespace-nowrap uppercase ${statusColor}`}>{status}</span>
       </div>
       <div className="text-[10px] text-slate-400 flex items-center gap-2">
         <BookOpen size={12} /> {date}
@@ -123,14 +169,14 @@ function LogbookItem({ title, date, status, statusColor, kendala }: any) {
   )
 }
 
-function DudiItem({ name, count }: any) {
+function DudiItem({ name, address, count }: any) {
   return (
     <div className="flex justify-between items-center py-2 border-b border-slate-50 last:border-0">
       <div>
         <p className="text-sm font-bold text-slate-700">{name}</p>
-        <p className="text-[10px] text-slate-400">Jl. Contoh Alamat Perusahaan...</p>
+        <p className="text-[10px] text-slate-400 truncate w-40">{address}</p>
       </div>
-      <span className="bg-lime-500 text-white text-[10px] px-2 py-0.5 rounded font-bold">{count} siswa</span>
+      <span className="bg-lime-500 text-white text-[10px] px-2 py-0.5 rounded font-bold whitespace-nowrap">{count} siswa</span>
     </div>
   )
 }
