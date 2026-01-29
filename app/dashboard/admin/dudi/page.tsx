@@ -16,6 +16,15 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 
 export default function ManajemenDudiPage() {
   return (
@@ -48,9 +57,72 @@ export default function ManajemenDudiPage() {
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
               <Input placeholder="Cari perusahaan..." className="pl-9 w-[250px] border-slate-200 rounded-xl focus-visible:ring-cyan-500" />
             </div>
-            <Button className="bg-cyan-500 hover:bg-cyan-600 rounded-xl gap-2 shadow-lg shadow-cyan-100">
-              <Plus size={18} /> Tambah DUDI
-            </Button>
+            {/* GANTI TOMBOL LAMA DENGAN INI */}
+<Dialog>
+  <DialogTrigger asChild>
+    <Button className="bg-cyan-500 hover:bg-cyan-600 rounded-xl gap-2 shadow-lg shadow-cyan-100">
+      <Plus size={18} /> Tambah DUDI
+    </Button>
+  </DialogTrigger>
+  
+  {/* Modal Pop-up dengan background blur otomatis */}
+  <DialogContent className="sm:max-w-[425px] rounded-3xl bg-white p-0 overflow-hidden border-none">
+    <div className="p-8 space-y-6">
+      <DialogHeader>
+        <DialogTitle className="text-xl font-bold text-[#0A2659]">Tambah DUDI Baru</DialogTitle>
+        <p className="text-xs text-slate-500">Lengkapi semua informasi yang diperlukan</p>
+      </DialogHeader>
+
+      <div className="space-y-4">
+        {/* Input Nama Perusahaan */}
+        <div className="space-y-2">
+          <Label className="text-xs font-bold text-slate-700">Nama Perusahaan <span className="text-red-500">*</span></Label>
+          <Input placeholder="Masukkan nama perusahaan" className="rounded-xl border-slate-200 py-6" />
+        </div>
+
+        {/* Input Alamat */}
+        <div className="space-y-2">
+          <Label className="text-xs font-bold text-slate-700">Alamat <span className="text-red-500">*</span></Label>
+          <Textarea placeholder="Masukkan alamat lengkap" className="rounded-xl border-slate-200 min-h-[100px]" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          {/* Input Telepon */}
+          <div className="space-y-2">
+            <Label className="text-xs font-bold text-slate-700">Telepon <span className="text-red-500">*</span></Label>
+            <Input placeholder="Contoh: 021-12345678" className="rounded-xl border-slate-200 py-6" />
+          </div>
+          {/* Input Email */}
+          <div className="space-y-2">
+            <Label className="text-xs font-bold text-slate-700">Email <span className="text-red-500">*</span></Label>
+            <Input placeholder="Contoh: info@perusahaan.com" className="rounded-xl border-slate-200 py-6" />
+          </div>
+        </div>
+
+        {/* Input Penanggung Jawab */}
+        <div className="space-y-2">
+          <Label className="text-xs font-bold text-slate-700">Penanggung Jawab <span className="text-red-500">*</span></Label>
+          <Input placeholder="Nama penanggung jawab" className="rounded-xl border-slate-200 py-6" />
+        </div>
+
+        {/* Input Status - Gunakan Select Sesuai Gambar */}
+        <div className="space-y-2">
+          <Label className="text-xs font-bold text-slate-700">Status <span className="text-red-500">*</span></Label>
+          <select className="w-full p-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500">
+            <option>Aktif</option>
+            <option>Tidak Aktif</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="grid grid-cols-2 gap-4 pt-4">
+        <Button variant="outline" className="rounded-xl py-6 font-bold text-slate-500">Batal</Button>
+        <Button className="bg-[#0A2659] hover:bg-slate-800 text-white rounded-xl py-6 font-bold">Simpan</Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
           </div>
         </div>
 
