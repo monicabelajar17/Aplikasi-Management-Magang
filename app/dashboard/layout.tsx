@@ -88,8 +88,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
           <div className="flex items-center gap-3">
              <div className="text-right hidden sm:block">
-                <p className="text-xs font-bold text-[#0A2659]">{isSiswa ? "Bagus Hidayat" : "Admin Sistem"}</p>
-                <p className="text-[9px] text-slate-500 uppercase tracking-wider">{isSiswa ? "Siswa" : "Admin"}</p>
+                <p className="text-xs font-bold text-[#0A2659]">{isAdmin ? "Admin Sistem" : isGuru ? "Guru Pembimbing" : "Ahmad Rizki"}</p>
+                <p className="text-[9px] text-slate-500 uppercase tracking-wider">{isAdmin ? "Admin" : isGuru ? "Guru" : "Siswa"}</p>
              </div>
              <div className="h-10 w-10 rounded-full bg-cyan-500 flex items-center justify-center text-white shadow-sm">
                 <User size={20} />
