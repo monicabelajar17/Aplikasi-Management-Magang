@@ -4,7 +4,8 @@ import React, { useEffect, useState } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { 
   Building2, Plus, Search, Mail, Phone, Edit, 
-  Trash2, CheckCircle2, XCircle, Users, Loader2 
+  Trash2, CheckCircle2, XCircle, Users, Loader2,
+  AlertCircle
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,10 +21,42 @@ export default function ManajemenDudiPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [dudiToDelete, setDudiToDelete] = useState<any>(null)
+  // Tambahkan di dalam komponen, setelah state lainnya:
+const [submitting, setSubmitting] = useState(false)
 
 const [isAddOpen, setIsAddOpen] = useState(false)
 const [isEditOpen, setIsEditOpen] = useState(false)
 const [dudiToEdit, setDudiToEdit] = useState<any>(null)
+
+// State untuk toast notification
+const [toast, setToast] = useState<{
+  show: boolean;
+  type: 'success' | 'error' | 'warning';
+  title: string;
+  message: string;
+}>({
+  show: false,
+  type: 'success',
+  title: '',
+  message: ''
+})
+
+// Fungsi untuk menampilkan toast
+const showToast = (type: 'success' | 'error' | 'warning', title: string, message: string) => {
+  setToast({
+    show: true,
+    type,
+    title,
+    message
+  })
+  
+  // Auto hide setelah 3 detik
+  setTimeout(() => {
+    setToast(prev => ({ ...prev, show: false }))
+  }, 3000)
+}
+
+
 
 // State untuk form (bisa dipakai tambah/edit)
 const [formData, setFormData] = useState({
@@ -64,22 +97,164 @@ const [formData, setFormData] = useState({
     fetchDudi()
   }, [])
 
+// Fungsi untuk handle perubahan input form
+const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const { name, value } = e.target
+  setFormData(prev => ({
+    ...prev,
+    [name]: value
+  }))
+}
+
+
+
   // Fungsi untuk menghapus DUDI
   const handleDelete = async () => {
   if (!dudiToDelete) return
 
-  // Kita pakai update (Soft Delete)
-  const { error } = await supabase
-    .from('dudi')
-    .update({ is_deleted: true }) 
-    .eq('id', dudiToDelete.id)
+  try {
+    const { error } = await supabase
+      .from('dudi')
+      .update({ is_deleted: true })
+      .eq('id', dudiToDelete.id)
 
-  if (error) {
-    alert("Gagal menghapus: " + error.message)
-  } else {
-    setIsDeleteOpen(false)
-    setDudiToDelete(null)
-    fetchDudi() // Memanggil fetchDudi yang sudah ada filter .eq('is_deleted', false)
+    if (error) {
+      showToast('error', 'Gagal Menghapus', error.message)
+    } else {
+      showToast('success', 'Berhasil!', `DUDI "${dudiToDelete.nama_perusahaan}" berhasil dihapus`)
+      setIsDeleteOpen(false)
+      setDudiToDelete(null)
+      fetchDudi()
+    }
+  } catch (error: any) {
+    showToast('error', 'Kesalahan Sistem', error.message)
+  }
+}
+
+// Fungsi untuk menambahkan DUDI baru
+const handleAddSubmit = async () => {
+  // VALIDASI LENGKAP
+  if (!formData.nama_perusahaan.trim()) {
+    showToast('error', 'Validasi Gagal', 'Nama perusahaan harus diisi')
+    return
+  }
+  
+  if (!formData.email.trim()) {
+    showToast('error', 'Validasi Gagal', 'Email harus diisi')
+    return
+  }
+  
+  // Validasi format email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(formData.email)) {
+    showToast('error', 'Validasi Gagal', 'Format email tidak valid')
+    return
+  }
+  
+  if (!formData.telepon.trim()) {
+    showToast('error', 'Validasi Gagal', 'Telepon harus diisi')
+    return
+  }
+  
+  if (!formData.penanggung_jawab.trim()) {
+    showToast('error', 'Validasi Gagal', 'Penanggung jawab harus diisi')
+    return
+  }
+
+  setSubmitting(true)
+  try {
+    const { data, error } = await supabase
+      .from('dudi')
+      .insert([{
+        nama_perusahaan: formData.nama_perusahaan,
+        email: formData.email,
+        telepon: formData.telepon,
+        penanggung_jawab: formData.penanggung_jawab,
+        alamat: formData.alamat,
+        status: formData.status,
+        is_deleted: false
+      }])
+      .select()
+
+    if (error) {
+      showToast('error', 'Gagal Menambahkan', error.message)
+    } else {
+      showToast('success', 'Berhasil!', `DUDI "${formData.nama_perusahaan}" berhasil ditambahkan`)
+      setIsAddOpen(false)
+      setFormData({
+        nama_perusahaan: "",
+        email: "",
+        telepon: "",
+        penanggung_jawab: "",
+        alamat: "",
+        status: "Aktif"
+      })
+      fetchDudi()
+    }
+  } catch (error: any) {
+    showToast('error', 'Kesalahan Sistem', error.message)
+  } finally {
+    setSubmitting(false)
+  }
+}
+
+// Fungsi untuk mengedit DUDI
+const handleEditSubmit = async () => {
+  if (!dudiToEdit) return
+
+  // VALIDASI SAMA SEPERTI TAMBAH
+  if (!formData.nama_perusahaan.trim()) {
+    showToast('error', 'Validasi Gagal', 'Nama perusahaan harus diisi')
+    return
+  }
+  
+  if (!formData.email.trim()) {
+    showToast('error', 'Validasi Gagal', 'Email harus diisi')
+    return
+  }
+  
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(formData.email)) {
+    showToast('error', 'Validasi Gagal', 'Format email tidak valid')
+    return
+  }
+  
+  if (!formData.telepon.trim()) {
+    showToast('error', 'Validasi Gagal', 'Telepon harus diisi')
+    return
+  }
+  
+  if (!formData.penanggung_jawab.trim()) {
+    showToast('error', 'Validasi Gagal', 'Penanggung jawab harus diisi')
+    return
+  }
+
+  setSubmitting(true)
+  try {
+    const { error } = await supabase
+      .from('dudi')
+      .update({
+        nama_perusahaan: formData.nama_perusahaan,
+        email: formData.email,
+        telepon: formData.telepon,
+        penanggung_jawab: formData.penanggung_jawab,
+        alamat: formData.alamat,
+        status: formData.status
+      })
+      .eq('id', dudiToEdit.id)
+
+    if (error) {
+      showToast('error', 'Gagal Mengupdate', error.message)
+    } else {
+      showToast('success', 'Berhasil!', `Data "${formData.nama_perusahaan}" berhasil diperbarui`)
+      setIsEditOpen(false)
+      setDudiToEdit(null)
+      fetchDudi()
+    }
+  } catch (error: any) {
+    showToast('error', 'Kesalahan Sistem', error.message)
+  } finally {
+    setSubmitting(false)
   }
 }
 
@@ -96,6 +271,36 @@ const [formData, setFormData] = useState({
 
   return (
     <div className="space-y-8">
+      {/* TOAST NOTIFICATION */}
+    {toast.show && (
+      <div className="fixed top-5 right-5 z-[2000] animate-in slide-in-from-right-10 duration-300">
+        <div className={`px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border ${
+          toast.type === 'success' 
+            ? 'bg-emerald-500 text-white border-emerald-400' 
+            : toast.type === 'error'
+            ? 'bg-red-500 text-white border-red-400'
+            : 'bg-amber-500 text-white border-amber-400'
+        }`}>
+          <div className={`p-1 rounded-full ${
+            toast.type === 'success' ? 'bg-white/20' 
+            : toast.type === 'error' ? 'bg-white/20'
+            : 'bg-white/20'
+          }`}>
+            {toast.type === 'success' ? (
+              <CheckCircle2 size={18} />
+            ) : toast.type === 'error' ? (
+              <XCircle size={18} />
+            ) : (
+              <AlertCircle size={18} />
+            )}
+          </div>
+          <div className="flex flex-col">
+            <p className="font-bold text-sm">{toast.title}</p>
+            <p className="text-xs opacity-90">{toast.message}</p>
+          </div>
+        </div>
+      </div>
+    )}
       <div>
         <h1 className="text-3xl font-extrabold text-[#0A2659]">Manajemen DUDI</h1>
         <p className="text-slate-500 mt-1">Kelola data mitra Dunia Usaha dan Dunia Industri</p>
@@ -165,10 +370,20 @@ const [formData, setFormData] = useState({
                 <TableRow 
   key={dudi.id} 
   dudi={dudi}
-  onEditClick={() => {
-    setDudiToEdit(dudi)
-    setIsEditOpen(true)
-  }}
+  // Di dalam TableRow mapping, update onEditClick:
+onEditClick={() => {
+  setDudiToEdit(dudi)
+  // Isi form dengan data yang akan diedit
+  setFormData({
+    nama_perusahaan: dudi.nama_perusahaan || "",
+    email: dudi.email || "",
+    telepon: dudi.telepon || "",
+    penanggung_jawab: dudi.penanggung_jawab || "",
+    alamat: dudi.alamat || "",
+    status: dudi.status || "Aktif"
+  })
+  setIsEditOpen(true)
+}}
   onDeleteClick={() => {
     setDudiToDelete(dudi)
     setIsDeleteOpen(true)
@@ -180,74 +395,7 @@ const [formData, setFormData] = useState({
         </div>
       </div>
 
-{/* MODAL FORM (TAMBAH / EDIT) */}
-<Dialog open={isAddOpen || isEditOpen} onOpenChange={(val) => val ? null : (setIsAddOpen(false), setIsEditOpen(false))}>
-  <DialogContent className="sm:max-w-[500px] rounded-3xl p-0 border-none overflow-hidden bg-white">
-    <div className="bg-[#0A2659] p-6 text-white">
-      <DialogTitle className="text-xl font-bold flex items-center gap-2">
-        {isEditOpen ? <Edit size={20} /> : <Plus size={20} />}
-        {isEditOpen ? "Edit Data Mitra" : "Tambah Mitra Baru"}
-      </DialogTitle>
-      <p className="text-cyan-200 text-xs mt-1 italic">Lengkapi informasi detail mitra DUDI</p>
-    </div>
-
-    <div className="p-6 space-y-4">
-      <div className="grid grid-cols-1 gap-4">
-        <div className="space-y-1.5">
-          <label className="text-[11px] font-bold text-slate-400 uppercase ml-1">Nama Perusahaan</label>
-          <Input 
-            value={isEditOpen ? dudiToEdit?.nama_perusahaan : formData.nama_perusahaan}
-            placeholder="Contoh: PT. Teknologi Indonesia" 
-            className="rounded-xl border-slate-200 focus:border-cyan-500"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-bold text-slate-400 uppercase ml-1">Email</label>
-            <Input placeholder="hrd@perusahaan.com" className="rounded-xl border-slate-200" />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-bold text-slate-400 uppercase ml-1">Telepon/WA</label>
-            <Input placeholder="0812..." className="rounded-xl border-slate-200" />
-          </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-[11px] font-bold text-slate-400 uppercase ml-1">Penanggung Jawab (PIC)</label>
-          <Input placeholder="Nama Manager / HRD" className="rounded-xl border-slate-200" />
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-[11px] font-bold text-slate-400 uppercase ml-1">Alamat Kantor</label>
-          <textarea 
-            className="w-full min-h-[80px] rounded-xl border border-slate-200 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
-            placeholder="Jalan Merdeka No. 123..."
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-[11px] font-bold text-slate-400 uppercase ml-1">Status Kemitraan</label>
-          <select className="w-full rounded-xl border border-slate-200 p-2.5 text-sm focus:border-cyan-500 outline-none">
-            <option value="Aktif">Aktif</option>
-            <option value="Tidak Aktif">Tidak Aktif</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="flex gap-3 pt-4">
-        <Button variant="outline" className="flex-1 rounded-xl py-6 border-slate-200 text-slate-500" onClick={() => { setIsAddOpen(false); setIsEditOpen(false); }}>
-          Batal
-        </Button>
-        <Button className="flex-1 rounded-xl py-6 bg-cyan-500 hover:bg-cyan-600 text-white font-bold">
-          {isEditOpen ? "Simpan Perubahan" : "Daftarkan Mitra"}
-        </Button>
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>
-
-      {/* Dialog Konfirmasi Hapus */}
+{/* DIALOG HAPUS */}
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -288,6 +436,109 @@ const [formData, setFormData] = useState({
           </div>
         </DialogContent>
       </Dialog>
+
+{/* MODAL FORM (TAMBAH / EDIT) */}
+<Dialog open={isAddOpen || isEditOpen} onOpenChange={(val) => val ? null : (setIsAddOpen(false), setIsEditOpen(false))}>
+  <DialogContent className="sm:max-w-[500px] rounded-3xl p-0 border-none overflow-hidden bg-white">
+    <div className="bg-[#0A2659] p-6 text-white">
+      <DialogTitle className="text-xl font-bold flex items-center gap-2">
+        {isEditOpen ? <Edit size={20} /> : <Plus size={20} />}
+        {isEditOpen ? "Edit Data Mitra" : "Tambah Mitra Baru"}
+      </DialogTitle>
+      <p className="text-cyan-200 text-xs mt-1 italic">Lengkapi informasi detail mitra DUDI</p>
+    </div>
+
+    <div className="p-6 space-y-4">
+      <div className="grid grid-cols-1 gap-4">
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-bold text-slate-400 uppercase ml-1">Nama Perusahaan</label>
+          <Input 
+            name="nama_perusahaan"
+            value={isEditOpen ? formData.nama_perusahaan : formData.nama_perusahaan}
+            onChange={handleInputChange}
+            placeholder="Contoh: PT. Teknologi Indonesia" 
+            className="rounded-xl border-slate-200 focus:border-cyan-500"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-bold text-slate-400 uppercase ml-1">Email</label>
+            <Input 
+              name="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              placeholder="hrd@perusahaan.com" 
+              className="rounded-xl border-slate-200"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-bold text-slate-400 uppercase ml-1">Telepon/WA</label>
+            <Input 
+              name="telepon"
+              value={formData.telepon}
+              onChange={handleInputChange}
+              placeholder="0812..." 
+              className="rounded-xl border-slate-200"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-bold text-slate-400 uppercase ml-1">Penanggung Jawab (PIC)</label>
+          <Input 
+            name="penanggung_jawab"
+            value={formData.penanggung_jawab}
+            onChange={handleInputChange}
+            placeholder="Nama Manager / HRD" 
+            className="rounded-xl border-slate-200"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-bold text-slate-400 uppercase ml-1">Alamat Kantor</label>
+          <textarea 
+            name="alamat"
+            value={formData.alamat}
+            onChange={handleInputChange}
+            className="w-full min-h-[80px] rounded-xl border border-slate-200 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500"
+            placeholder="Jalan Merdeka No. 123..."
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-bold text-slate-400 uppercase ml-1">Status Kemitraan</label>
+          <select 
+            name="status"
+            value={formData.status}
+            onChange={handleInputChange}
+            className="w-full rounded-xl border border-slate-200 p-2.5 text-sm focus:border-cyan-500 outline-none"
+          >
+            <option value="Aktif">Aktif</option>
+            <option value="Tidak Aktif">Tidak Aktif</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="flex gap-3 pt-4">
+        <Button 
+          variant="outline" 
+          className="flex-1 rounded-xl py-6 border-slate-200 text-slate-500" 
+          onClick={() => { setIsAddOpen(false); setIsEditOpen(false); }}
+        >
+          Batal
+        </Button>
+        <Button 
+          className="flex-1 rounded-xl py-6 bg-cyan-500 hover:bg-cyan-600 text-white font-bold"
+          onClick={isEditOpen ? handleEditSubmit : handleAddSubmit}
+        >
+          {isEditOpen ? "Simpan Perubahan" : "Daftarkan Mitra"}
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
+
     </div>
   )
 }
@@ -356,7 +607,7 @@ function TableRow({ dudi, onEditClick, onDeleteClick }: {
       <td className="px-6 py-5">
         <div className="flex items-center gap-2">
           <span className="bg-lime-500 text-white text-[10px] px-2 py-0.5 rounded font-bold whitespace-nowrap">
-            {count} Siswa
+            {count}
           </span>
         </div>
       </td>
