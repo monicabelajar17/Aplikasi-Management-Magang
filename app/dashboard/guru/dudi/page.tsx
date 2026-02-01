@@ -22,25 +22,30 @@ export default function DudiGuruPage() {
   // Ambil data dari tabel DUDI
   const fetchDudi = async () => {
   setLoading(true);
-  
-  // Kita ambil data dudi, dan "hitung" ada berapa data di tabel magang
-  // yang dudi_id-nya cocok. Kita filter juga yang statusnya 'Aktif'.
+
   const { data, error } = await supabase
     .from('dudi')
     .select(`
       *,
-      magang!magang_dudi_id_fkey (count)
+      magang:magang_dudi_id_fkey (
+        id
+      )
     `)
-    .eq('magang.status', 'Aktif');
+    .eq('is_deleted', false)          // 🔥 FILTER DUDI AKTIF
+    .eq('magang.status', 'Aktif');    // 🔥 FILTER MAGANG AKTIF
 
-  if (data) {
-    const formattedData = data.map(item => ({
-      ...item,
-      // Ambil hasil hitungan dari join tadi
-      siswa_count: item.magang?.[0]?.count || 0
-    }));
-    setDudiList(formattedData);
+  if (error) {
+    console.error(error);
+    setLoading(false);
+    return;
   }
+
+  const formattedData = data.map((item) => ({
+    ...item,
+    siswa_count: item.magang?.length || 0
+  }));
+
+  setDudiList(formattedData);
   setLoading(false);
 };
 

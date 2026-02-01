@@ -6,8 +6,11 @@ export default async function GuruDashboardPage() {
 
   // 1. Fetch Stats (Sama dengan Admin, atau bisa difilter berdasarkan Guru ID jika perlu)
   const { count: totalSiswa } = await supabase.from('siswa').select('*', { count: 'exact', head: true })
-  const { count: totalDudi } = await supabase.from('dudi').select('*', { count: 'exact', head: true })
-  const { count: siswaMagang } = await supabase.from('magang').select('*', { count: 'exact', head: true }).eq('status', 'aktif')
+  const { count: totalDudi } = await supabase
+  .from('dudi')
+  .select('*', { count: 'exact', head: true })
+  .eq('is_deleted', false)
+  const { count: siswaMagang } = await supabase.from('magang').select('*', { count: 'exact', head: true }).eq('status', 'Aktif')
   
   const today = new Date().toISOString().split('T')[0]
   const { count: logbookToday } = await supabase.from('logbook').select('*', { count: 'exact', head: true }).eq('tanggal', today)
@@ -42,7 +45,24 @@ export default async function GuruDashboardPage() {
     .limit(2)
 
   // 4. Fetch DUDI Aktif
-  const { data: dudiList } = await supabase.from('dudi').select('id, nama_perusahaan, alamat').limit(4)
+  const { data: dudiAktif } = await supabase
+  .from('dudi')
+  .select(`
+    id,
+    nama_perusahaan,
+    alamat,
+    magang (
+      id
+    )
+  `)
+  .eq('is_deleted', false)
+  .eq('magang.status', 'Aktif')
+  .limit(4)
+
+const formattedDudiAktif = dudiAktif?.map(d => ({
+  ...d,
+  siswa_count: d.magang?.length || 0
+}))
 
   return (
     <div className="space-y-8">
@@ -109,9 +129,15 @@ export default async function GuruDashboardPage() {
             <h3 className="font-bold text-[#0A2659]">DUDI Aktif</h3>
           </div>
           <div className="space-y-4">
-            {dudiList?.map((dudi: any) => (
-              <DudiItem key={dudi.id} name={dudi.nama_perusahaan} address={dudi.alamat} count={0} />
-            ))}
+            {formattedDudiAktif?.map((dudi: any) => (
+  <DudiItem
+    key={dudi.id}
+    name={dudi.nama_perusahaan}
+    address={dudi.alamat}
+    count={dudi.siswa_count}
+  />
+))}
+
           </div>
         </section>
       </div>
