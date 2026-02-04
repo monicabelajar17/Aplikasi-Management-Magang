@@ -52,10 +52,31 @@ export async function loginAction(formData: FormData) {
     path: "/",
     maxAge: 60 * 60 * 24,
   });
+  const userRole = user.role?.toLowerCase();
+  
+// 🔎 JIKA ROLE = GURU, AMBIL guru_id & SIMPAN KE COOKIE
+if (userRole === "guru") {
+  const { data: guru } = await supabase
+    .from("guru")
+    .select("id")
+    .eq("user_id", user.id)
+    .single()
+
+  if (!guru) {
+    return { error: "Data guru tidak ditemukan" }
+  }
+
+  cookieStore.set("guru_id", guru.id.toString(), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24,
+  })
+}
 
   // 5. OPSI A: Direct Redirect berdasarkan Role
   // Pastikan string ini cocok dengan isi kolom 'role' di tabel Supabase-mu
-  const userRole = user.role?.toLowerCase();
 
   switch (userRole) {
     case 'admin':

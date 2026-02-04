@@ -7,7 +7,7 @@ export default async function DashboardPage() {
   // 1. Ambil Angka Statistik secara Real-time
   const { count: totalSiswa } = await supabase.from('siswa').select('*', { count: 'exact', head: true })
   const { count: totalDudi } = await supabase.from('dudi').select('*', { count: 'exact', head: true })
-  const { count: siswaMagang } = await supabase.from('magang').select('*', { count: 'exact', head: true }).eq('status', 'aktif')
+  const { count: siswaMagang } = await supabase.from('magang').select('*', { count: 'exact', head: true }).eq('status', 'berlangsung')
   
   // Ambil jumlah logbook hari ini
   const today = new Date().toISOString().split('T')[0]
@@ -17,12 +17,14 @@ export default async function DashboardPage() {
   const { data: recentMagang } = await supabase
     .from('magang')
     .select(`
-      id,
-      tanggal_mulai,
-      tanggal_selesai,
-      siswa ( nama ),
-      dudi ( nama_perusahaan )
-    `)
+  id,
+  status,
+  tanggal_mulai,
+  tanggal_selesai,
+  siswa ( nama ),
+  dudi ( nama_perusahaan )
+`)
+
     .order('created_at', { ascending: false })
     .limit(2)
 
@@ -34,11 +36,26 @@ export default async function DashboardPage() {
     .limit(1)
     .single()
 
-  // 4. Ambil Data DUDI (Yang tadi hilang/belum diambil)
   const { data: dudiAktif } = await supabase
     .from('dudi')
     .select('*')
     .limit(5)
+
+  // 5. Untuk setiap DUDI, hitung jumlah siswa magang yang BERLANGSUNG
+  const dudiWithStudentCount = await Promise.all(
+    (dudiAktif || []).map(async (dudi) => {
+      const { count } = await supabase
+        .from('magang')
+        .select('*', { count: 'exact', head: true })
+        .eq('dudi_id', dudi.id)
+        .eq('status', 'berlangsung')
+      
+      return {
+        ...dudi,
+        siswa_count: count || 0
+      }
+    })
+  )
 
   return (
     <div className="space-y-8">
@@ -66,11 +83,13 @@ export default async function DashboardPage() {
             <div className="space-y-4">
               {recentMagang && recentMagang.length > 0 ? recentMagang.map((m: any) => (
                 <ListMember 
-                  key={m.id} 
-                  name={m.siswa?.nama || "No Name"} 
-                  company={m.dudi?.nama_perusahaan || "No Company"} 
-                  date={`${m.tanggal_mulai} - ${m.tanggal_selesai}`} 
-                />
+  key={m.id} 
+  name={m.siswa?.nama || "No Name"} 
+  company={m.dudi?.nama_perusahaan || "No Company"} 
+  date={`${m.tanggal_mulai} - ${m.tanggal_selesai}`} 
+  status={m.status}
+/>
+
               )) : <p className="text-sm text-slate-400">Belum ada data magang.</p>}
             </div>
           </section>
@@ -101,12 +120,12 @@ export default async function DashboardPage() {
             <h3 className="font-bold text-[#0A2659]">DUDI Partner</h3>
           </div>
           <div className="space-y-6">
-            {dudiAktif && dudiAktif.length > 0 ? dudiAktif.map((dudi: any) => (
+            {dudiWithStudentCount && dudiWithStudentCount.length > 0 ? dudiWithStudentCount.map((dudi: any) => (
               <DudiItem 
                 key={dudi.id}
                 name={dudi.nama_perusahaan} 
                 address={dudi.alamat} 
-                count={0} 
+                count={dudi.siswa_count} 
               />
             )) : <p className="text-xs text-slate-400 text-center py-4">Belum ada mitra.</p>}
           </div>
@@ -128,7 +147,18 @@ function StatCard({ title, value, sub, icon }: { title: string, value: string, s
   )
 }
 
-function ListMember({ name, company, date }: { name: string, company: string, date: string }) {
+function ListMember({
+  name,
+  company,
+  date,
+  status
+}: {
+  name: string
+  company: string
+  date: string
+  status: string
+}) {
+
   return (
     <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-[#E6EFFF] transition-colors group">
       <div className="flex items-center gap-4">
@@ -141,7 +171,18 @@ function ListMember({ name, company, date }: { name: string, company: string, da
           <p className="text-[10px] text-slate-400 mt-1">{date}</p>
         </div>
       </div>
-      <span className="text-[10px] bg-emerald-100 text-emerald-600 px-3 py-1 rounded-full font-bold">AKTIF</span>
+      <span
+  className={`text-[10px] px-3 py-1 rounded-full font-bold uppercase
+    ${status === 'berlangsung'
+      ? 'bg-emerald-100 text-emerald-600'
+      : status === 'selesai'
+      ? 'bg-slate-200 text-slate-600'
+      : 'bg-amber-100 text-amber-600'
+    }`}
+>
+  {status}
+</span>
+
     </div>
   )
 }

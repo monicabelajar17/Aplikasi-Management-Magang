@@ -7,6 +7,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { createClient } from "@/utils/supabase/client"
+import { Shield, GraduationCap, User as UserIcon } from "lucide-react"
 
 export default function ManajemenUserPage() {
   const supabase = createClient()
@@ -19,6 +20,8 @@ export default function ManajemenUserPage() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
+  const [roleFilter, setRoleFilter] = useState("all")
+
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null); // Menyimpan data user yang sedang diedit
   const triggerEdit = (user: any) => {
@@ -30,7 +33,8 @@ const handleUpdateUser = async (e: React.FormEvent) => {
   e.preventDefault();
   setLoading(true);
 
-  const { error } = await supabase
+  // 1. Update tabel users
+  const { error: userError } = await supabase
     .from('users')
     .update({ 
       full_name: editingUser.full_name, 
@@ -39,14 +43,22 @@ const handleUpdateUser = async (e: React.FormEvent) => {
     })
     .eq('id', editingUser.id);
 
-  if (!error) {
+  if (!userError) {
+    // 2. Update otomatis ke tabel pendamping
+    if (editingUser.role === 'guru' || editingUser.role === 'siswa') {
+      await supabase
+        .from(editingUser.role)
+        .update({ nama: editingUser.full_name })
+        .eq('user_id', editingUser.id);
+    }
+
     setIsEditModalOpen(false);
     fetchUsers();
-    setToastMessage("Data user berhasil diperbarui!");
+    setToastMessage("Data user & profil diperbarui!");
     setShowToast(true);
     setTimeout(() => setShowToast(false), 3000);
   } else {
-    alert("Gagal update: " + error.message);
+    alert("Gagal update: " + userError.message);
   }
   setLoading(false);
 };
@@ -73,11 +85,17 @@ const handleUpdateUser = async (e: React.FormEvent) => {
   }, [])
 
   // --- FUNGSI SEARCH ---
-  const filteredUsers = users.filter(user => 
+  const filteredUsers = users.filter(user => {
+  const matchSearch =
     user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.role?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+    user.email?.toLowerCase().includes(searchTerm.toLowerCase())
+
+  const matchRole =
+    roleFilter === "all" || user.role === roleFilter
+
+  return matchSearch && matchRole
+})
+
 
   // --- FUNGSI UNTUK MODAL ---
   const triggerDelete = (id: number) => {
@@ -89,12 +107,14 @@ const handleUpdateUser = async (e: React.FormEvent) => {
     if (selectedUserId) {
       const { error } = await supabase.from('users').delete().eq('id', selectedUserId)
       if (!error) {
-        setUsers(users.filter(u => u.id !== selectedUserId))
-        setIsDeleteModalOpen(false)
-        setSelectedUserId(null)
-      } else {
-        alert("Gagal menghapus: " + error.message)
-      }
+  setUsers(users.filter(u => u.id !== selectedUserId))
+  setIsDeleteModalOpen(false)
+  setSelectedUserId(null)
+
+  setToastMessage("User berhasil dihapus")
+  setShowToast(true)
+  setTimeout(() => setShowToast(false), 3000)
+}
     }
   }
 
@@ -117,43 +137,50 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
 
 const handleAddUser = async (e: React.FormEvent) => {
   e.preventDefault();
-
-  // 1. Validasi Password
   if (formData.password !== formData.confirmPassword) {
     alert("Password tidak cocok!");
     return;
   }
-
   setLoading(true);
 
-  // 2. Insert ke Supabase (Ganti bagian yang tadi error dengan ini)
-  const { error } = await supabase
+  // 1. Insert ke tabel 'users' dan ambil datanya (.select().single())
+  const { data: newUser, error: userError } = await supabase
     .from('users')
-    .insert([
-      { 
-        full_name: formData.full_name, 
-        email: formData.email, 
-        role: formData.role, 
-        password: formData.password 
-      }
-    ]);
+    .insert([{ 
+      full_name: formData.full_name, 
+      email: formData.email, 
+      role: formData.role, 
+      password: formData.password 
+    }])
+    .select()
+    .single();
 
-  // 3. Logika setelah berhasil/gagal
-  if (!error) {
-    setIsAddModalOpen(false); // Tutup Modal
-    setFormData({ full_name: '', email: '', role: 'siswa', password: '', confirmPassword: '' }); // Reset Form
-    fetchUsers(); // Refresh Tabel
-    
-    // Munculkan Toast
-    setToastMessage("User berhasil ditambahkan!");
+  if (!userError && newUser) {
+    // 2. Jika role adalah guru atau siswa, insert ke tabel pendamping
+    if (newUser.role === 'guru' || newUser.role === 'siswa') {
+      const tableTarget = newUser.role; // akan jadi 'guru' atau 'siswa'
+      const { error: profileError } = await supabase
+        .from(tableTarget)
+        .insert([{ 
+          user_id: newUser.id, 
+          nama: newUser.full_name // Redundansi nama di sini
+        }]);
+      
+      if (profileError) console.error("Gagal buat profil:", profileError.message);
+    }
+
+    setIsAddModalOpen(false);
+    setFormData({ full_name: '', email: '', role: 'siswa', password: '', confirmPassword: '' });
+    fetchUsers();
+    setToastMessage("User & Profil berhasil ditambahkan!");
     setShowToast(true);
     setTimeout(() => setShowToast(false), 3000);
   } else {
-    // Kalau email sudah ada atau error lain
-    alert("Gagal menambahkan user: " + error.message);
+    alert("Gagal: " + userError?.message);
   }
   setLoading(false);
 };
+
   return (
     <div className="space-y-8 relative"> {/* Tambahkan relative di sini */}
       
@@ -186,6 +213,16 @@ const handleAddUser = async (e: React.FormEvent) => {
               className="pl-9 border-slate-200 rounded-xl focus-visible:ring-cyan-500" 
             />
           </div>
+          <select
+  value={roleFilter}
+  onChange={(e) => setRoleFilter(e.target.value)}
+  className="border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-cyan-500 outline-none"
+>
+  <option value="all">Semua Role</option>
+  <option value="admin">Admin</option>
+  <option value="guru">Guru</option>
+  <option value="siswa">Siswa</option>
+</select>
         </div>
 
         <div className="overflow-x-auto">
@@ -392,11 +429,24 @@ const handleAddUser = async (e: React.FormEvent) => {
 
 // --- KOMPONEN BARIS TABEL ---
 function UserTableRow({ user, onDelete, onEdit }: any) {
-  const roleStyles: any = {
-    admin: "bg-purple-100 text-purple-600",
-    guru: "bg-blue-100 text-blue-600",
-    siswa: "bg-cyan-100 text-cyan-600"
+  const roleConfig: any = {
+  admin: {
+    label: "Admin",
+    class: "bg-purple-100 text-purple-700 border border-purple-200",
+    icon: <Shield size={12} />
+  },
+  guru: {
+    label: "Guru",
+    class: "bg-blue-100 text-blue-700 border border-blue-200",
+    icon: <GraduationCap size={12} />
+  },
+  siswa: {
+    label: "Siswa",
+    class: "bg-cyan-100 text-cyan-700 border border-cyan-200",
+    icon: <UserIcon size={12} />
   }
+}
+
 
   const initial = user.full_name?.charAt(0).toUpperCase() || "U"
 
@@ -425,9 +475,11 @@ function UserTableRow({ user, onDelete, onEdit }: any) {
       </td>
       
       <td className="px-8 py-5 text-center">
-        <span className={`text-[10px] font-extrabold px-3 py-1 rounded-lg uppercase tracking-wider ${roleStyles[user.role]}`}>
-          • {user.role}
-        </span>
+        <span className={`inline-flex items-center gap-1.5 text-[10px] font-extrabold px-3 py-1 rounded-lg uppercase tracking-wider ${roleConfig[user.role]?.class}`}>
+  {roleConfig[user.role]?.icon}
+  {roleConfig[user.role]?.label}
+</span>
+
       </td>
       <td className="px-8 py-5">
         <p className="text-xs font-semibold text-slate-600">

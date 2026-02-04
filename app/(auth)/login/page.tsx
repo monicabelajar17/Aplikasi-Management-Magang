@@ -69,20 +69,15 @@ export default function LoginPage() {
               <div className="relative">
                 <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
                 <Input 
-                  id="password" 
-                  name="password" // WAJIB ADA
-                  type={showPassword ? "text" : "password"} 
-                  placeholder="Enter your password"
-                  required
-                  className="pl-10 py-6 border-slate-200 rounded-xl focus-visible:ring-[#0A2659]"
-                />
-                <button 
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3.5 text-slate-400 hover:text-slate-600"
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+  id="password" 
+  name="password"
+  type={showPassword ? "text" : "password"} 
+  placeholder="Enter your password"
+  required
+  className="pl-10 pr-12 py-6 border-slate-200 rounded-xl focus-visible:ring-[#0A2659]"
+/>
+
+                
               </div>
             </div>
 
@@ -95,13 +90,6 @@ export default function LoginPage() {
             </Button>
           </form>
         </CardContent>
-
-        <div className="text-center pb-6">
-          <p className="text-sm text-slate-600">
-            Don't have an account?{" "}
-            <a href="#" className="text-blue-600 font-semibold hover:underline">Sign up</a>
-          </p>
-        </div>
       </Card>
     </div>
   )

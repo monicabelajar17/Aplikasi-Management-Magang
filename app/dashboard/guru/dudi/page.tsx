@@ -32,7 +32,7 @@ export default function DudiGuruPage() {
       )
     `)
     .eq('is_deleted', false)          // 🔥 FILTER DUDI AKTIF
-    .eq('magang.status', 'Aktif');    // 🔥 FILTER MAGANG AKTIF
+    .eq('magang.status', 'aktif');    // 🔥 FILTER MAGANG AKTIF
 
   if (error) {
     console.error(error);

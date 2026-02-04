@@ -65,29 +65,40 @@ const [formData, setFormData] = useState({
   telepon: "",
   penanggung_jawab: "",
   alamat: "",
-  status: "Aktif"
+  status: "aktif"
 })
 
   const fetchDudi = async () => {
   setLoading(true)
   const { data, error } = await supabase
-    .from('dudi')
-    .select(`
-      *,
-      magang(count)
-    `)
-    // TAMBAHKAN BARIS INI: Hanya ambil data yang belum dihapus
-    .eq('is_deleted', false) 
-    .order('nama_perusahaan', { ascending: true })
+  .from('dudi')
+  .select(`
+    *,
+    magang (
+      id,
+      status
+    )
+  `)
+  .eq('is_deleted', false)
+  .order('nama_perusahaan', { ascending: true })
+  
+
   
   if (error) {
     console.error("Error fetch DUDI:", error.message)
   } else if (data) {
-    const formattedData = data.map(item => ({
-      ...item,
-      // Pastikan menghitung dari tabel relasi 'magang' sesuai skema kamu
-      jumlah_siswa: item.magang?.[0]?.count || 0
-    }))
+    const formattedData = data.map(dudi => {
+  const aktifMagang = (dudi.magang || []).filter(
+    (m: any) => m.status?.toLowerCase().trim() === 'berlangsung'
+  )
+
+  return {
+    ...dudi,
+    jumlah_siswa: aktifMagang.length
+  }
+})
+
+
     setDudiList(formattedData)
   }
   setLoading(false)
@@ -187,7 +198,7 @@ const handleAddSubmit = async () => {
         telepon: "",
         penanggung_jawab: "",
         alamat: "",
-        status: "Aktif"
+        status: "aktif"
       })
       fetchDudi()
     }
@@ -260,8 +271,8 @@ const handleEditSubmit = async () => {
 
   // --- LOGIKA STATISTIK ---
   const totalDudi = dudiList.length
-  const dudiAktif = dudiList.filter(d => d.status === 'Aktif').length
-  const dudiTidakAktif = dudiList.filter(d => d.status === 'Tidak Aktif').length
+  const dudiAktif = dudiList.filter(d => d.status === 'aktif').length
+  const dudiTidakAktif = dudiList.filter(d => d.status === 'nonaktif').length
   const totalSiswa = dudiList.reduce((acc, curr) => acc + (curr.jumlah_siswa || 0), 0)
 
   const filteredDudi = dudiList.filter(d => 
@@ -336,7 +347,7 @@ const handleEditSubmit = async () => {
     {/* Tombol Tambah */}
     <Button 
       onClick={() => {
-        setFormData({ nama_perusahaan: "", email: "", telepon: "", penanggung_jawab: "", alamat: "", status: "Aktif" })
+        setFormData({ nama_perusahaan: "", email: "", telepon: "", penanggung_jawab: "", alamat: "", status: "aktif" })
         setIsAddOpen(true)
       }}
       className="bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl gap-2 shadow-lg shadow-cyan-100"
@@ -380,7 +391,7 @@ onEditClick={() => {
     telepon: dudi.telepon || "",
     penanggung_jawab: dudi.penanggung_jawab || "",
     alamat: dudi.alamat || "",
-    status: dudi.status || "Aktif"
+    status: dudi.status || "aktif"
   })
   setIsEditOpen(true)
 }}
@@ -514,8 +525,8 @@ onEditClick={() => {
             onChange={handleInputChange}
             className="w-full rounded-xl border border-slate-200 p-2.5 text-sm focus:border-cyan-500 outline-none"
           >
-            <option value="Aktif">Aktif</option>
-            <option value="Tidak Aktif">Tidak Aktif</option>
+            <option value="aktif">Aktif</option>
+<option value="nonaktif">Nonaktif</option>
           </select>
         </div>
       </div>
@@ -563,7 +574,7 @@ function TableRow({ dudi, onEditClick, onDeleteClick }: {
   onEditClick: () => void,
   onDeleteClick: () => void 
 }) {
-  const isAktif = dudi.status === "Aktif"
+  const isAktif = dudi.status === "aktif"
   const count = dudi.jumlah_siswa || 0
 
   return (
