@@ -75,8 +75,8 @@ export default function DashboardClientLayout({ children, profile }: DashboardLa
 
           {isGuru && (
             <>
-              <NavItem icon={<GraduationCap size={20}/>} label="Bimbingan" sub="Siswa magang" active={pathname.includes("/magang")} href="/dashboard/guru/magang" />
-              <NavItem icon={<BookOpen size={20}/>} label="Monitoring" sub="Cek jurnal" active={pathname.includes("/jurnal")} href="/dashboard/guru/jurnal" />
+              <NavItem icon={<GraduationCap size={20}/>} label="Magang" sub="Siswa magang" active={pathname.includes("/magang")} href="/dashboard/guru/magang" />
+              <NavItem icon={<BookOpen size={20}/>} label="Jurnal" sub="Cek jurnal" active={pathname.includes("/jurnal")} href="/dashboard/guru/jurnal" />
             </>
           )}
 

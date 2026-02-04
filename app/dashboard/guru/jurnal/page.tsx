@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { useState } from "react"
 import { 
   BookOpen, 
   Search, 
@@ -10,21 +10,34 @@ import {
   XCircle, 
   Eye, 
   MessageSquare,
-  ClipboardList
+  ClipboardList,
+  X,
+  AlertCircle,
+  FileText,
+  Download,
+  Edit2
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
 export default function ManajemenJurnalGuru() {
+  const [modalOpen, setModalOpen] = useState(false)
+  const [selectedJurnal, setSelectedJurnal] = useState<any>(null)
+
+  const openDetail = (data: any) => {
+    setSelectedJurnal(data)
+    setModalOpen(true)
+  }
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 relative">
       {/* HEADER SECTION */}
       <div>
         <h1 className="text-3xl font-extrabold text-[#0A2659]">Manajemen Jurnal Harian Magang</h1>
         <p className="text-slate-500 mt-1">Verifikasi dan berikan feedback pada laporan aktivitas harian siswa</p>
       </div>
 
-      {/* STATS GRID - 4 Kolom sesuai gambar */}
+      {/* STATS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard title="Total Logbook" value="5" sub="Laporan terdaftar" icon={<BookOpen className="text-cyan-500" />} />
         <StatCard title="Belum Diverifikasi" value="2" sub="Menunggu verifikasi" icon={<Clock className="text-amber-500" />} />
@@ -34,7 +47,6 @@ export default function ManajemenJurnalGuru() {
 
       {/* TABLE SECTION */}
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-        {/* Toolbar */}
         <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center gap-2 font-bold text-[#0A2659]">
             <ClipboardList className="text-cyan-500" size={20} />
@@ -45,20 +57,13 @@ export default function ManajemenJurnalGuru() {
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
               <Input placeholder="Cari siswa, kegiatan, atau kendala..." className="pl-9 border-slate-200 rounded-xl focus-visible:ring-cyan-500 text-sm" />
             </div>
-            <Button variant="outline" className="rounded-xl gap-2 text-slate-500 border-slate-200">
-              <Filter size={16} /> Tampilkan Filter
-            </Button>
           </div>
         </div>
 
-        {/* Table Content */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-separate border-spacing-0">
+          <table className="w-full text-left">
             <thead className="bg-slate-50/50 text-slate-400 text-[11px] uppercase tracking-wider font-bold">
               <tr>
-                <th className="px-8 py-4 w-12 text-center">
-                  <input type="checkbox" className="rounded border-slate-300" />
-                </th>
                 <th className="px-8 py-4">Siswa & Tanggal</th>
                 <th className="px-8 py-4">Kegiatan & Kendala</th>
                 <th className="px-8 py-4 text-center">Status</th>
@@ -68,30 +73,137 @@ export default function ManajemenJurnalGuru() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               <JurnalTableRow 
-                name="Ahmad Rizki" nis="2024001" kelas="XII RPL 1" date="1 Mar 2024"
-                kegiatan="Membuat desain UI aplikasi kasir menggunakan Figma. Melakukan analisis user experience dan wireframing untuk interface yang user-friendly."
-                kendala="Kesulitan menentukan skema warna yang tepat dan konsisten untuk seluruh aplikasi."
-                status="disetujui"
-                feedback="Bagus, lanjutkan dengan implementasi!"
+                data={{
+                  name: "Ahmad Rizki", nis: "2024001", kelas: "XII RPL 1", date: "Sabtu, 2 Maret 2024",
+                  kegiatan: "Belajar backend Laravel untuk membangun REST API sistem kasir.",
+                  kendala: "Error saat menjalankan migration database dan kesulitan memahami relationship antar tabel",
+                  status: "pending", feedback: "Belum ada catatan"
+                }}
+                onView={() => openDetail({
+                  name: "Ahmad Rizki", date: "Sabtu, 2 Maret 2024",
+                  kendala: "Error saat menjalankan migration database dan kesulitan memahami relationship antar tabel",
+                  status: "pending", feedback: ""
+                })}
               />
               <JurnalTableRow 
-                name="Ahmad Rizki" nis="2024001" kelas="XII RPL 1" date="2 Mar 2024"
-                kegiatan="Belajar backend Laravel untuk membangun REST API sistem kasir. Mempelajari konsep MVC dan routing."
-                kendala="Error saat menjalankan migration database dan kesulitan memahami relationship antar tabel."
-                status="pending"
-                feedback="Belum ada catatan"
-              />
-              <JurnalTableRow 
-                name="Siti Nurhaliza" nis="2024002" kelas="XII RPL 1" date="1 Mar 2024"
-                kegiatan="Setup server Linux Ubuntu untuk deployment aplikasi web. Konfigurasi Apache dan MySQL."
-                kendala="Belum familiar dengan command line interface dan permission system di Linux."
-                status="ditolak"
-                feedback="Perbaiki deskripsi kegiatan, terlalu singkat."
+                data={{
+                  name: "Siti Nurhaliza", nis: "2024002", kelas: "XII RPL 1", date: "Jumat, 1 Maret 2024",
+                  kegiatan: "Setup server Linux Ubuntu untuk deployment aplikasi web.",
+                  kendala: "Belum familiar dengan command line interface.",
+                  status: "disetujui", feedback: "Bagus, dokumentasi sudah lengkap."
+                }}
+                onView={() => openDetail({
+                  name: "Siti Nurhaliza", date: "Jumat, 1 Maret 2024",
+                  kendala: "Belum familiar dengan command line interface.",
+                  status: "disetujui", feedback: "Bagus, dokumentasi sudah lengkap."
+                })}
               />
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* --- MODAL DETAIL JURNAL (Persis Gambar) --- */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-[2rem] w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
+            
+            {/* Modal Header */}
+            <div className="p-6 border-b border-slate-50 flex justify-between items-start">
+              <div className="flex gap-4 items-center">
+                <div className="bg-cyan-500 p-2.5 rounded-xl text-white shadow-lg shadow-cyan-100">
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-[#0A2659]">Detail Jurnal Harian</h3>
+                  <p className="text-xs text-slate-400 font-medium">{selectedJurnal?.date}</p>
+                </div>
+              </div>
+              <button onClick={() => setModalOpen(false)} className="text-slate-300 hover:text-slate-500 p-1">
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-8 space-y-8">
+              {/* Section Kendala (Warna Kuning persis gambar) */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-slate-700 font-bold text-sm">
+                  <AlertCircle size={16} className="text-orange-500" />
+                  Kendala yang Dihadapi
+                </div>
+                <div className="bg-orange-50/50 border border-orange-100 p-5 rounded-2xl">
+                  <p className="text-sm text-slate-600 leading-relaxed font-medium">
+                    {selectedJurnal?.kendala}
+                  </p>
+                </div>
+              </div>
+
+              {/* Section Dokumentasi */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-slate-700 font-bold text-sm">
+                  <FileText size={16} className="text-emerald-500" />
+                  Dokumentasi
+                </div>
+                <div className="bg-emerald-50/30 border border-emerald-100 p-3 rounded-2xl flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="text-emerald-600"><FileText size={20} /></div>
+                    <span className="text-sm font-medium text-slate-600 italic tracking-tight">documento2.pdf</span>
+                  </div>
+                  <Button size="sm" className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl gap-2 px-4 h-9">
+                    <Download size={14} /> Unduh
+                  </Button>
+                </div>
+              </div>
+
+              {/* Section Catatan Guru */}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2 text-slate-700 font-bold text-sm">
+                    <MessageSquare size={16} className="text-indigo-500" />
+                    Catatan Guru
+                  </div>
+                  {/* Tombol Edit hanya jika pending */}
+                  {selectedJurnal?.status === "pending" && (
+                    <Button variant="ghost" className="h-8 text-blue-600 hover:bg-blue-50 gap-2 rounded-lg text-xs font-bold px-3">
+                      <Edit2 size={12} /> Edit
+                    </Button>
+                  )}
+                </div>
+                <div className="border-2 border-dashed border-slate-100 p-6 rounded-2xl text-center">
+                  <p className="text-sm text-slate-400 font-medium">
+                    {selectedJurnal?.feedback || "Belum ada catatan dari guru"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer (Aksi hanya jika Pending) */}
+            <div className="px-8 py-6 bg-slate-50/50 flex justify-between items-center">
+              <div className="text-[10px] text-slate-400 font-medium">
+                Dibuat: 2/3/2024 <span className="mx-2">•</span> Diperbarui: 2/3/2024
+              </div>
+              
+              <div className="flex gap-3">
+                {selectedJurnal?.status === "pending" ? (
+                  <>
+                    <Button className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl px-6 font-bold gap-2">
+                      <CheckCircle size={16} /> Setujui
+                    </Button>
+                    <Button className="bg-rose-500 hover:bg-rose-600 text-white rounded-xl px-6 font-bold gap-2">
+                      <X size={16} /> Tolak
+                    </Button>
+                  </>
+                ) : (
+                  <Button onClick={() => setModalOpen(false)} variant="outline" className="rounded-xl px-8 font-bold border-slate-200">
+                    Tutup
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -111,64 +223,34 @@ function StatCard({ title, value, sub, icon }: any) {
   )
 }
 
-function JurnalTableRow({ name, nis, kelas, date, kegiatan, kendala, status, feedback }: any) {
+function JurnalTableRow({ data, onView }: any) {
   const statusConfig: any = {
     disetujui: "bg-emerald-50 text-emerald-500 border-emerald-100",
     pending: "bg-amber-50 text-amber-500 border-amber-100",
     ditolak: "bg-rose-50 text-rose-500 border-rose-100",
   }
 
-  const statusLabel: any = {
-    disetujui: "Disetujui",
-    pending: "Belum Diverifikasi",
-    ditolak: "Ditolak",
-  }
-
   return (
     <tr className="hover:bg-slate-50/50 transition-colors group">
-      <td className="px-8 py-5 text-center">
-        <input type="checkbox" className="rounded border-slate-300" />
-      </td>
       <td className="px-8 py-5">
-        <div className="min-w-[140px]">
-          <p className="text-sm font-bold text-slate-800 leading-tight">{name}</p>
-          <p className="text-[10px] text-slate-400 mt-1 font-medium">NIS: {nis}</p>
-          <p className="text-[10px] text-slate-400 font-medium">{kelas}</p>
-          <div className="flex items-center gap-1.5 mt-2 text-[10px] font-bold text-cyan-600 bg-cyan-50 w-fit px-2 py-0.5 rounded">
-            {date}
-          </div>
+        <div>
+          <p className="text-sm font-bold text-slate-800 leading-tight">{data.name}</p>
+          <p className="text-[10px] text-slate-400 mt-1 font-medium">{data.date}</p>
         </div>
       </td>
       <td className="px-8 py-5">
-        <div className="max-w-[400px] space-y-3">
-          <div>
-            <p className="text-[10px] font-extrabold text-slate-700 uppercase tracking-tighter mb-1">Kegiatan:</p>
-            <p className="text-[11px] text-slate-500 leading-relaxed italic">{kegiatan}</p>
-          </div>
-          <div>
-            <p className="text-[10px] font-extrabold text-amber-600 uppercase tracking-tighter mb-1">Kendala:</p>
-            <p className="text-[11px] text-amber-500/80 leading-relaxed italic">{kendala}</p>
-          </div>
-        </div>
+        <p className="text-[11px] text-slate-500 leading-relaxed italic line-clamp-1">{data.kegiatan}</p>
       </td>
       <td className="px-8 py-5 text-center">
-        <span className={`text-[9px] font-extrabold px-3 py-1 rounded-lg uppercase tracking-wider border ${statusConfig[status]}`}>
-          {statusLabel[status]}
+        <span className={`text-[9px] font-extrabold px-3 py-1 rounded-lg uppercase tracking-wider border ${statusConfig[data.status]}`}>
+          {data.status}
         </span>
       </td>
       <td className="px-8 py-5">
-        <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl min-w-[200px]">
-          <div className="flex items-center gap-1.5 mb-1">
-            <MessageSquare size={10} className="text-slate-400" />
-            <p className="text-[9px] font-bold text-slate-400 uppercase">Catatan:</p>
-          </div>
-          <p className="text-[11px] text-slate-600 leading-tight">
-            {feedback === "Belum ada catatan" ? <span className="text-slate-300 italic">{feedback}</span> : feedback}
-          </p>
-        </div>
+        <p className="text-[11px] text-slate-400 italic line-clamp-1">{data.feedback}</p>
       </td>
       <td className="px-8 py-5 text-center">
-        <button className="p-2.5 text-slate-400 hover:text-cyan-500 hover:bg-cyan-50 rounded-2xl transition-all border border-transparent hover:border-cyan-100 shadow-sm">
+        <button onClick={onView} className="p-2.5 text-slate-400 hover:text-cyan-500 hover:bg-cyan-50 rounded-2xl transition-all shadow-sm border border-transparent hover:border-cyan-100">
           <Eye size={18} />
         </button>
       </td>

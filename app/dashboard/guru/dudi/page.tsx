@@ -19,39 +19,75 @@ export default function DudiGuruPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
 
+  const [guruId, setGuruId] = useState<number | null>(null)
   // Ambil data dari tabel DUDI
+// Ambil data dari tabel DUDI berdasarkan relasi di tabel magang
   const fetchDudi = async () => {
-  setLoading(true);
+    if (!guruId) return
+    setLoading(true)
 
-  const { data, error } = await supabase
-    .from('dudi')
-    .select(`
-      *,
-      magang:magang_dudi_id_fkey (
-        id
-      )
-    `)
-    .eq('is_deleted', false)          // 🔥 FILTER DUDI AKTIF
-    .eq('magang.status', 'aktif');    // 🔥 FILTER MAGANG AKTIF
+    // Logika: Kita ambil data dari tabel MAGANG yang guru_id nya cocok
+    // Lalu kita tarik data DUDI (perusahaan) yang terkait
+    const { data, error } = await supabase
+      .from("magang")
+      .select(`
+        id,
+        status,
+        guru_id,
+        dudi (
+          id,
+          nama_perusahaan,
+          alamat,
+          email,
+          telepon,
+          penanggung_jawab
+        )
+      `)
+      .eq("guru_id", guruId) // Filter berdasarkan guru yang membimbing
+      .eq("status", "aktif") // Hanya yang status magangnya aktif
 
-  if (error) {
-    console.error(error);
-    setLoading(false);
-    return;
+    if (error) {
+      console.error("Error fetching data:", error.message)
+      setLoading(false)
+      return
+    }
+
+    // Karena satu DUDI bisa punya banyak siswa, kita kelompokkan berdasarkan DUDI ID
+    // agar di tabel tidak muncul nama perusahaan yang sama berulang kali
+    const groupedDudi = data.reduce((acc: any[], current: any) => {
+      const dudiData = current.dudi;
+      if (!dudiData) return acc;
+
+      const existingDudi = acc.find(item => item.id === dudiData.id);
+
+      if (existingDudi) {
+        existingDudi.siswa_count += 1;
+      } else {
+        acc.push({
+          ...dudiData,
+          siswa_count: 1
+        });
+      }
+      return acc;
+    }, []);
+
+    setDudiList(groupedDudi)
+    setLoading(false)
   }
 
-  const formattedData = data.map((item) => ({
-    ...item,
-    siswa_count: item.magang?.length || 0
-  }));
-
-  setDudiList(formattedData);
-  setLoading(false);
-};
+useEffect(() => {
+  const id = Number(getCookie("guru_id"))
+  if (id) {
+    setGuruId(id)
+  }
+}, [])
 
   useEffect(() => {
-    fetchDudi();
-  }, []);
+  if (guruId) {
+    fetchDudi()
+  }
+}, [guruId])
+
 
   // Filter data berdasarkan input pencarian
   const filteredDudi = dudiList.filter((dudi) =>
@@ -162,6 +198,13 @@ export default function DudiGuruPage() {
 }
 
 // --- Komponen Lokal ---
+function getCookie(name: string) {
+  if (typeof document === "undefined") return null
+  const match = document.cookie
+    .split("; ")
+    .find(row => row.startsWith(name + "="))
+  return match ? match.split("=")[1] : null
+}
 
 function StatCard({ title, value, sub, icon }: any) {
   return (

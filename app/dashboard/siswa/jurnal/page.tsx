@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { useState } from "react"
 import { 
   BookOpen, 
   Plus, 
@@ -18,8 +18,42 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import FormJurnalModal from "./detail/page"
 
 export default function JurnalHarianSiswa() {
+
+  const [modalOpen, setModalOpen] = useState(false)
+  const [modalMode, setModalMode] = useState<"tambah" | "edit" | "delete" | "view">("tambah")
+  const [selectedData, setSelectedData] = useState<any>(null)
+
+  const handleTambah = () => {
+    setModalMode("tambah")
+    setSelectedData(null)
+    setModalOpen(true)
+  }
+
+  const handleEdit = (data: any) => {
+    setModalMode("edit")
+    setSelectedData(data)
+    setModalOpen(true)
+  }
+
+  const handleDelete = (date: string) => {
+    setModalMode("delete")
+    setSelectedData({ date }) // Kita kirim tanggalnya buat ditampilin di modal konfirmasi
+    setModalOpen(true)
+  }
+
+  const executeDelete = () => {
+    console.log("Menghapus data...");
+    setModalOpen(false)
+  }
+
+  const handleView = (data: any) => {
+  setModalMode("view")
+  setSelectedData(data)
+  setModalOpen(true)
+}
   return (
     <div className="space-y-8">
       {/* HEADER SECTION */}
@@ -28,9 +62,9 @@ export default function JurnalHarianSiswa() {
           <h1 className="text-3xl font-extrabold text-[#0A2659]">Jurnal Harian Magang</h1>
           <p className="text-slate-500 mt-1">Catat aktivitas dan kendala selama pelaksanaan magang</p>
         </div>
-        <Button className="bg-[#00A9C1] hover:bg-cyan-600 rounded-xl gap-2 shadow-lg shadow-cyan-100 py-6 px-6 text-sm font-bold">
-          <Plus size={20} /> Tambah Jurnal
-        </Button>
+        <Button onClick={handleTambah} className="bg-[#00A9C1] ...">
+        <Plus size={20} /> Tambah Jurnal
+      </Button>
       </div>
 
       {/* ALERT REMINDER - Sesuai gambar */}
@@ -99,31 +133,61 @@ export default function JurnalHarianSiswa() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              <RiwayatTableRow 
-                date="Min, 3 Mar 2024"
-                kegiatan="Melanjutkan pengembangan frontend dengan React.js. Implementasi komponen dashboard dan integrasi dengan API."
-                kendala="Kegiatan terlalu singkat, tolong deskripsikan lebih..."
-                status="ditolak"
-                feedback="Perbaiki deskripsi kegiatan, terlalu singkat."
-              />
-              <RiwayatTableRow 
-                date="Sab, 2 Mar 2024"
-                kegiatan="Belajar backend laravel untuk membangun REST API sistem kasir. Mempelajari konsep MVC dan routing."
-                kendala="Belum ada kendala"
-                status="pending"
-                feedback="Belum ada feedback"
-              />
-              <RiwayatTableRow 
-                date="Jum, 1 Mar 2024"
-                kegiatan="Membuat desain UI aplikasi kasir menggunakan Figma. Melakukan analisis user experience dan wireframing untuk interface yang user-friendly."
-                kendala="Tidak ada kendala berarti"
-                status="disetujui"
-                feedback="Bagus, lanjutkan dengan implementasi!"
-              />
-            </tbody>
+  <RiwayatTableRow 
+    date="Min, 3 Mar 2024"
+    kegiatan="Melanjutkan pengembangan frontend dengan React.js. Implementasi komponen dashboard dan integrasi dengan API."
+    status="ditolak"
+    feedback="Perbaiki deskripsi kegiatan, terlalu singkat."
+    onView={() => handleView({ 
+      date: "Min, 3 Mar 2024", 
+      kegiatan: "Melanjutkan pengembangan frontend dengan React.js. Implementasi komponen dashboard dan integrasi dengan API.", 
+      status: "ditolak", 
+      feedback: "Perbaiki deskripsi kegiatan, terlalu singkat." 
+    })}
+    onEdit={() => handleEdit({ kegiatan: "Melanjutkan pengembangan frontend...", dateRaw: "2024-03-03" })}
+    onDelete={() => handleDelete("Min, 3 Mar 2024")}
+  />
+
+  <RiwayatTableRow 
+    date="Sab, 2 Mar 2024"
+    kegiatan="Belajar backend laravel untuk membangun REST API sistem kasir. Mempelajari konsep MVC dan routing."
+    status="pending"
+    feedback="Belum ada feedback"
+    onView={() => handleView({ 
+      date: "Sab, 2 Mar 2024", 
+      kegiatan: "Belajar backend laravel untuk membangun REST API sistem kasir.", 
+      status: "pending", 
+      feedback: "Belum ada feedback" 
+    })}
+    onEdit={() => handleEdit({ kegiatan: "Belajar backend laravel...", dateRaw: "2024-03-02" })}
+    onDelete={() => handleDelete("Sab, 2 Mar 2024")}
+  />
+
+  <RiwayatTableRow 
+    date="Jum, 1 Mar 2024"
+    kegiatan="Membuat desain UI aplikasi kasir menggunakan Figma. Melakukan analisis user experience."
+    status="disetujui"
+    feedback="Bagus, lanjutkan dengan implementasi!"
+    onView={() => handleView({ 
+      date: "Jum, 1 Mar 2024", 
+      kegiatan: "Membuat desain UI aplikasi kasir menggunakan Figma.", 
+      status: "disetujui", 
+      feedback: "Bagus, lanjutkan dengan implementasi!" 
+    })}
+    onEdit={() => handleEdit({ kegiatan: "Membuat desain UI...", dateRaw: "2024-03-01" })}
+    onDelete={() => handleDelete("Jum, 1 Mar 2024")}
+  />
+</tbody>
           </table>
         </div>
       </div>
+      <FormJurnalModal 
+        isOpen={modalOpen} 
+        onClose={() => setModalOpen(false)} 
+        mode={modalMode}
+        data={selectedData}
+        onConfirmDelete={executeDelete}
+      />
     </div>
   )
 }
@@ -157,7 +221,7 @@ function FilterSelect({ label, placeholder }: any) {
   )
 }
 
-function RiwayatTableRow({ date, kegiatan, kendala, status, feedback }: any) {
+function RiwayatTableRow({ date, kegiatan, status, feedback, onEdit, onDelete, onView }: any) {
   const statusConfig: any = {
     disetujui: "bg-emerald-50 text-emerald-500",
     pending: "bg-amber-50 text-amber-500",
@@ -204,16 +268,27 @@ function RiwayatTableRow({ date, kegiatan, kendala, status, feedback }: any) {
       </td>
       <td className="px-8 py-6 text-center align-top">
         <div className="flex justify-center gap-2">
-          {status === 'disetujui' ? (
-             <button className="p-2 text-slate-300 cursor-not-allowed">
-               <Eye size={16} />
-             </button>
-          ) : (
+          {/* Tombol Mata (View) - Selalu Ada di Semua Status */}
+          <button 
+            onClick={onView} 
+            className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
+          >
+            <Eye size={16} />
+          </button>
+
+          {/* Tombol Edit & Delete - Hanya Ada jika status BUKAN disetujui */}
+          {status !== 'disetujui' && (
             <>
-              <button className="p-2 text-slate-400 hover:text-cyan-500 hover:bg-cyan-50 rounded-lg transition-all">
+              <button 
+                onClick={onEdit} 
+                className="p-2 text-slate-400 hover:text-cyan-500 hover:bg-cyan-50 rounded-lg transition-all"
+              >
                 <Edit size={16} />
               </button>
-              <button className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
+              <button 
+                onClick={onDelete} 
+                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+              >
                 <Trash2 size={16} />
               </button>
             </>
