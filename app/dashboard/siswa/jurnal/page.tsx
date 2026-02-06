@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react" // Tambah useEffect
 import { createClient } from "@/utils/supabase/client"
+import { toast } from "sonner"
 import { 
   BookOpen, 
   Plus, 
@@ -30,55 +31,53 @@ export default function JurnalHarianSiswa() {
   const [modalMode, setModalMode] = useState<"tambah" | "edit" | "delete" | "view">("tambah")
   const [selectedData, setSelectedData] = useState<any>(null)
 
-useEffect(() => {
-  const fetchData = async () => {
-    setLoading(true);
-    
-    // Ambil siswa_id dari cookie
-    const cookies = document.cookie.split('; ');
-    const siswaIdCookie = cookies.find(row => row.startsWith('siswa_id='));
-    const loggedInSiswaId = siswaIdCookie ? siswaIdCookie.split('=')[1] : null;
+// Fungsi untuk ambil data yang bisa dipanggil kapan saja
+const fetchData = async () => {
+  setLoading(true);
+  
+  // Ambil siswa_id dari cookie
+  const cookies = document.cookie.split('; ');
+  const siswaIdCookie = cookies.find(row => row.startsWith('siswa_id='));
+  const loggedInSiswaId = siswaIdCookie ? siswaIdCookie.split('=')[1] : null;
 
-    console.log("ID Siswa dari Cookie:", loggedInSiswaId);
+  if (!loggedInSiswaId) {
+    setLoading(false);
+    return;
+  }
 
-    if (!loggedInSiswaId) {
-      console.error("ID Siswa tidak ditemukan di cookie!");
-      setLoading(false);
+  try {
+    // 1. Cari magang_id berdasarkan siswa_id
+    const { data: magangData, error: magangError } = await supabase
+      .from('magang')
+      .select('id')
+      .eq('siswa_id', loggedInSiswaId)
+      .single();
+
+    if (magangError || !magangData) {
+      setJurnals([]);
       return;
     }
 
-    try {
-      // 1. Cari magang_id
-      const { data: magangData, error: magangError } = await supabase
-        .from('magang')
-        .select('id')
-        .eq('siswa_id', loggedInSiswaId)
-        .single();
+    // 2. Ambil data logbook (jurnal)
+    const { data: logbookData, error: logbookError } = await supabase
+      .from('logbook')
+      .select('*')
+      .eq('magang_id', magangData.id)
+      .eq('is_deleted', false)
+      .order('tanggal', { ascending: false });
 
-      if (magangError || !magangData) {
-        console.error("Data magang belum diset oleh guru/admin");
-        setJurnals([]);
-        return;
-      }
-
-      // 2. Ambil logbook
-      const { data: logbookData, error: logbookError } = await supabase
-        .from('logbook')
-        .select('*')
-        .eq('magang_id', magangData.id)
-        .eq('is_deleted', false)
-        .order('tanggal', { ascending: false });
-
-      if (!logbookError) {
-        setJurnals(logbookData || []);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
+    if (!logbookError) {
+      setJurnals(logbookData || []);
     }
-  };
+  } catch (err) {
+    console.error("Fetch Error:", err);
+  } finally {
+    setLoading(false);
+  }
+};
 
+// Panggil saat pertama kali halaman dibuka
+useEffect(() => {
   fetchData();
 }, []);
 
@@ -90,27 +89,99 @@ useEffect(() => {
   }
 
   const handleEdit = (data: any) => {
-    setModalMode("edit")
-    setSelectedData(data)
-    setModalOpen(true)
-  }
-
-  const handleDelete = (date: string) => {
-    setModalMode("delete")
-    setSelectedData({ date }) // Kita kirim tanggalnya buat ditampilin di modal konfirmasi
-    setModalOpen(true)
-  }
-
-  const executeDelete = () => {
-    console.log("Menghapus data...");
-    setModalOpen(false)
-  }
-
-  const handleView = (data: any) => {
-  setModalMode("view")
-  setSelectedData(data)
+  setModalMode("edit")
+  setSelectedData(data) // Mengirim seluruh baris logbook
   setModalOpen(true)
 }
+const handleSave = async (formData: any) => {
+  setLoading(true);
+  try {
+    if (modalMode === "edit") {
+      // --- LOGIKA EDIT (UPDATE) ---
+      const { error } = await supabase
+        .from('logbook')
+        .update({
+          tanggal: formData.tanggal,
+          kegiatan: formData.kegiatan,
+          kendala: formData.kendala,
+          status_verifikasi: 'pending' // Reset status jika diedit
+        })
+        .eq('id', selectedData.id); // Mencari data berdasarkan ID
+
+      if (error) throw error;
+      toast.success("Jurnal berhasil diperbarui!");
+
+    } else {
+      // --- LOGIKA TAMBAH (INSERT) ---
+      // 1. Ambil magang_id dulu (seperti yang kita bahas sebelumnya)
+      const cookies = document.cookie.split('; ');
+      const siswaId = cookies.find(row => row.startsWith('siswa_id='))?.split('=')[1];
+      
+      const { data: magang } = await supabase
+        .from('magang')
+        .select('id')
+        .eq('siswa_id', siswaId)
+        .single();
+
+      if (!magang) throw new Error("Data magang tidak ditemukan");
+
+      // 2. Insert data baru
+      const { error } = await supabase
+        .from('logbook')
+        .insert([{
+          magang_id: magang.id,
+          tanggal: formData.tanggal,
+          kegiatan: formData.kegiatan,
+          kendala: formData.kendala,
+          status_verifikasi: 'pending',
+          is_deleted: false
+        }]);
+
+      if (error) throw error;
+      toast.success("Jurnal baru berhasil ditambahkan!");
+    }
+
+    // Tutup modal dan refresh tabel
+    setModalOpen(false);
+    fetchData(); 
+
+  } catch (error: any) {
+    toast.error("Gagal: " + error.message);
+  } finally {
+    setLoading(false);
+  }
+};
+
+const handleView = (data: any) => {
+  setModalMode("view")
+  setSelectedData(data) // Mengirim seluruh baris logbook
+  setModalOpen(true)
+}
+
+  const handleDelete = (data: any) => {
+  setModalMode("delete")
+  setSelectedData(data) // Kirim object lengkap (termasuk ID), jangan cuma tanggalnya
+  setModalOpen(true)
+}
+
+  const executeDelete = async () => {
+  if (!selectedData?.id) return;
+
+  try {
+    const { error } = await supabase
+      .from('logbook')
+      .update({ is_deleted: true }) // Ubah status jadi true
+      .eq('id', selectedData.id);
+
+    if (error) throw error;
+
+    toast.success("Jurnal berhasil dihapus");
+    setModalOpen(false);
+    fetchData(); // Ambil ulang data agar yang 'true' tidak muncul lagi
+  } catch (error: any) {
+    toast.error("Gagal menghapus: " + error.message);
+  }
+};
 
 const totalJurnal = jurnals.length
 const disetujui = jurnals.filter(j => j.status_verifikasi === 'disetujui').length
@@ -229,38 +300,36 @@ const ditolak = jurnals.filter(j => j.status_verifikasi === 'ditolak').length
     </tr>
   ) : (
     jurnals.map((jurnal) => (
-      <RiwayatTableRow 
-        key={jurnal.id}
-        // Gunakan jurnal.tanggal sesuai struktur DB
-        date={new Date(jurnal.tanggal).toLocaleDateString('id-ID', { 
-          weekday: 'short', 
-          day: 'numeric', 
-          month: 'short', 
-          year: 'numeric' 
-        })}
-        kegiatan={jurnal.kegiatan}
-        // Sesuaikan dengan nama kolom status_verifikasi di DB
-        status={jurnal.status_verifikasi} 
-        // Sesuaikan dengan nama kolom catatan_guru di DB
-        feedback={jurnal.catatan_guru || "Belum ada feedback"}
-        onView={() => handleView(jurnal)}
-        onEdit={() => handleEdit(jurnal)}
-        // Kirim tanggal asli untuk keperluan hapus/identifikasi
-        onDelete={() => handleDelete(jurnal.tanggal)} 
-      />
-    ))
+  <RiwayatTableRow 
+    key={jurnal.id}
+    date={new Date(jurnal.tanggal).toLocaleDateString('id-ID', { 
+      weekday: 'short', 
+      day: 'numeric', 
+      month: 'short', 
+      year: 'numeric' 
+    })}
+    kegiatan={jurnal.kegiatan}
+    status={jurnal.status_verifikasi} 
+    feedback={jurnal.catatan_guru || "Belum ada feedback"}
+    onView={() => handleView(jurnal)}
+    onEdit={() => handleEdit(jurnal)}
+    // PERBAIKI INI: Kirim jurnal (object lengkap), bukan cuma tanggal
+    onDelete={() => handleDelete(jurnal)} 
+  />
+))
   )}
 </tbody>
           </table>
         </div>
       </div>
       <FormJurnalModal 
-        isOpen={modalOpen} 
-        onClose={() => setModalOpen(false)} 
-        mode={modalMode}
-        data={selectedData}
-        onConfirmDelete={executeDelete}
-      />
+  isOpen={modalOpen} 
+  onClose={() => setModalOpen(false)} 
+  mode={modalMode}
+  data={selectedData}
+  onConfirmDelete={executeDelete}
+  onSave={handleSave} // TAMBAHKAN INI
+/>
     </div>
   )
 }
