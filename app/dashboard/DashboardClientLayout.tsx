@@ -125,9 +125,9 @@ export default function DashboardClientLayout({ children, profile }: DashboardLa
                 {userRole}
               </p>
             </div>
-            <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-sm font-bold text-sm">
-              {profile.full_name.charAt(0).toUpperCase()}
-            </div>
+            <div className="h-10 w-10 rounded-full bg-[#0A2659] flex items-center justify-center text-white shadow-sm font-bold text-sm">
+  {profile.full_name.charAt(0).toUpperCase()}
+</div>
           </div>
         </header>
 
@@ -171,13 +171,13 @@ function NavItem({ icon, label, sub, active = false, href = "#" }: any) {
     <Link href={href}>
       <div className={`flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-all ${
         active 
-        ? 'bg-[#00A9C1] text-white shadow-lg shadow-cyan-100' 
-        : 'text-slate-500 hover:bg-slate-50'
+? 'bg-[#0A2659] text-white shadow-lg shadow-blue-100' 
+: 'text-slate-500 hover:bg-slate-50'
       }`}>
         <div className={`${active ? 'text-white' : 'text-slate-400'}`}>{icon}</div>
         <div>
           <p className="text-xs font-bold leading-none">{label}</p>
-          <p className={`text-[9px] mt-1 ${active ? 'text-cyan-50' : 'text-slate-400'}`}>{sub}</p>
+          <p className={`text-[9px] mt-1 ${active ? 'text-blue-100/80' : 'text-slate-400'}`}>{sub}</p>
         </div>
       </div>
     </Link>

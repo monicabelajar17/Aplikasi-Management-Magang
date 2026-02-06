@@ -74,7 +74,24 @@ if (userRole === "guru") {
     maxAge: 60 * 60 * 24,
   })
 }
+if (userRole === "siswa") {
+  const { data: siswa } = await supabase
+    .from("siswa")
+    .select("id")
+    .eq("user_id", user.id)
+    .single();
 
+  if (siswa) {
+    // Simpan id dari tabel siswa, bukan id dari tabel users
+    cookieStore.set("siswa_id", siswa.id.toString(), { 
+      httpOnly: false, // Agar bisa dibaca client-side jika perlu
+      path: "/", 
+      maxAge: 60 * 60 * 24 
+    });
+  } else {
+    return { error: "Data profil siswa tidak ditemukan!" };
+  }
+}
 // Simpan user_id
 cookieStore.set("user_id", user.id.toString(), {
   httpOnly: false,

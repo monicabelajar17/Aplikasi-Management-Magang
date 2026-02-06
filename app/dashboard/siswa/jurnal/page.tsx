@@ -1,6 +1,7 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react" // Tambah useEffect
+import { createClient } from "@/utils/supabase/client"
 import { 
   BookOpen, 
   Plus, 
@@ -21,10 +22,66 @@ import { Input } from "@/components/ui/input"
 import FormJurnalModal from "./detail/page"
 
 export default function JurnalHarianSiswa() {
-
+  const supabase = createClient()
+  const [jurnals, setJurnals] = useState<any[]>([]) // State untuk menampung data jurnal
+  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<any>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<"tambah" | "edit" | "delete" | "view">("tambah")
   const [selectedData, setSelectedData] = useState<any>(null)
+
+useEffect(() => {
+  const fetchData = async () => {
+    setLoading(true);
+    
+    // Ambil siswa_id dari cookie
+    const cookies = document.cookie.split('; ');
+    const siswaIdCookie = cookies.find(row => row.startsWith('siswa_id='));
+    const loggedInSiswaId = siswaIdCookie ? siswaIdCookie.split('=')[1] : null;
+
+    console.log("ID Siswa dari Cookie:", loggedInSiswaId);
+
+    if (!loggedInSiswaId) {
+      console.error("ID Siswa tidak ditemukan di cookie!");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // 1. Cari magang_id
+      const { data: magangData, error: magangError } = await supabase
+        .from('magang')
+        .select('id')
+        .eq('siswa_id', loggedInSiswaId)
+        .single();
+
+      if (magangError || !magangData) {
+        console.error("Data magang belum diset oleh guru/admin");
+        setJurnals([]);
+        return;
+      }
+
+      // 2. Ambil logbook
+      const { data: logbookData, error: logbookError } = await supabase
+        .from('logbook')
+        .select('*')
+        .eq('magang_id', magangData.id)
+        .eq('is_deleted', false)
+        .order('tanggal', { ascending: false });
+
+      if (!logbookError) {
+        setJurnals(logbookData || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchData();
+}, []);
+
 
   const handleTambah = () => {
     setModalMode("tambah")
@@ -54,6 +111,11 @@ export default function JurnalHarianSiswa() {
   setSelectedData(data)
   setModalOpen(true)
 }
+
+const totalJurnal = jurnals.length
+const disetujui = jurnals.filter(j => j.status_verifikasi === 'disetujui').length
+const pending = jurnals.filter(j => j.status_verifikasi === 'pending').length
+const ditolak = jurnals.filter(j => j.status_verifikasi === 'ditolak').length
   return (
     <div className="space-y-8">
       {/* HEADER SECTION */}
@@ -62,7 +124,7 @@ export default function JurnalHarianSiswa() {
           <h1 className="text-3xl font-extrabold text-[#0A2659]">Jurnal Harian Magang</h1>
           <p className="text-slate-500 mt-1">Catat aktivitas dan kendala selama pelaksanaan magang</p>
         </div>
-        <Button onClick={handleTambah} className="bg-[#00A9C1] ...">
+        <Button onClick={handleTambah} className="bg-[#0A2659] ...">
         <Plus size={20} /> Tambah Jurnal
       </Button>
       </div>
@@ -85,11 +147,31 @@ export default function JurnalHarianSiswa() {
 
       {/* STATS GRID - 4 Kolom sesuai gambar */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Total Jurnal" value="3" sub="Jurnal yang telah dibuat" icon={<BookOpen className="text-cyan-500" />} />
-        <StatCard title="Disetujui" value="1" sub="Jurnal disetujui guru" icon={<CheckCircle2 className="text-emerald-500" />} />
-        <StatCard title="Menunggu" value="1" sub="Belum diverifikasi" icon={<Clock className="text-blue-500" />} />
-        <StatCard title="Ditolak" value="1" sub="Perlu diperbaiki" icon={<XCircle className="text-rose-500" />} />
-      </div>
+  <StatCard 
+    title="Total Jurnal" 
+    value={totalJurnal.toString()} 
+    sub="Jurnal yang telah dibuat" 
+    icon={<BookOpen className="text-[#0A2659]" />} 
+  />
+  <StatCard 
+    title="Disetujui" 
+    value={disetujui.toString()} 
+    sub="Jurnal disetujui guru" 
+    icon={<CheckCircle2 className="text-emerald-500" />} 
+  />
+  <StatCard 
+    title="Menunggu" 
+    value={pending.toString()} 
+    sub="Belum diverifikasi" 
+    icon={<Clock className="text-blue-500" />} 
+  />
+  <StatCard 
+    title="Ditolak" 
+    value={ditolak.toString()} 
+    sub="Perlu diperbaiki" 
+    icon={<XCircle className="text-rose-500" />} 
+  />
+</div>
 
       {/* TABLE SECTION */}
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
@@ -97,7 +179,7 @@ export default function JurnalHarianSiswa() {
         <div className="p-6 border-b border-slate-50 space-y-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex items-center gap-2 font-bold text-[#0A2659]">
-              <BookOpen className="text-cyan-500" size={20} />
+              <BookOpen className="text-[#0A2659]" size={20} />
               Riwayat Jurnal
             </div>
             <div className="relative flex-1 max-w-md">
@@ -133,50 +215,41 @@ export default function JurnalHarianSiswa() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-  <RiwayatTableRow 
-    date="Min, 3 Mar 2024"
-    kegiatan="Melanjutkan pengembangan frontend dengan React.js. Implementasi komponen dashboard dan integrasi dengan API."
-    status="ditolak"
-    feedback="Perbaiki deskripsi kegiatan, terlalu singkat."
-    onView={() => handleView({ 
-      date: "Min, 3 Mar 2024", 
-      kegiatan: "Melanjutkan pengembangan frontend dengan React.js. Implementasi komponen dashboard dan integrasi dengan API.", 
-      status: "ditolak", 
-      feedback: "Perbaiki deskripsi kegiatan, terlalu singkat." 
-    })}
-    onEdit={() => handleEdit({ kegiatan: "Melanjutkan pengembangan frontend...", dateRaw: "2024-03-03" })}
-    onDelete={() => handleDelete("Min, 3 Mar 2024")}
-  />
-
-  <RiwayatTableRow 
-    date="Sab, 2 Mar 2024"
-    kegiatan="Belajar backend laravel untuk membangun REST API sistem kasir. Mempelajari konsep MVC dan routing."
-    status="pending"
-    feedback="Belum ada feedback"
-    onView={() => handleView({ 
-      date: "Sab, 2 Mar 2024", 
-      kegiatan: "Belajar backend laravel untuk membangun REST API sistem kasir.", 
-      status: "pending", 
-      feedback: "Belum ada feedback" 
-    })}
-    onEdit={() => handleEdit({ kegiatan: "Belajar backend laravel...", dateRaw: "2024-03-02" })}
-    onDelete={() => handleDelete("Sab, 2 Mar 2024")}
-  />
-
-  <RiwayatTableRow 
-    date="Jum, 1 Mar 2024"
-    kegiatan="Membuat desain UI aplikasi kasir menggunakan Figma. Melakukan analisis user experience."
-    status="disetujui"
-    feedback="Bagus, lanjutkan dengan implementasi!"
-    onView={() => handleView({ 
-      date: "Jum, 1 Mar 2024", 
-      kegiatan: "Membuat desain UI aplikasi kasir menggunakan Figma.", 
-      status: "disetujui", 
-      feedback: "Bagus, lanjutkan dengan implementasi!" 
-    })}
-    onEdit={() => handleEdit({ kegiatan: "Membuat desain UI...", dateRaw: "2024-03-01" })}
-    onDelete={() => handleDelete("Jum, 1 Mar 2024")}
-  />
+  {loading ? (
+    <tr>
+      <td colSpan={5} className="text-center py-10 text-slate-400 text-xs italic">
+        Memuat data jurnal...
+      </td>
+    </tr>
+  ) : jurnals.length === 0 ? (
+    <tr>
+      <td colSpan={5} className="text-center py-10 text-slate-400 text-xs">
+        Belum ada jurnal untuk ditampilkan.
+      </td>
+    </tr>
+  ) : (
+    jurnals.map((jurnal) => (
+      <RiwayatTableRow 
+        key={jurnal.id}
+        // Gunakan jurnal.tanggal sesuai struktur DB
+        date={new Date(jurnal.tanggal).toLocaleDateString('id-ID', { 
+          weekday: 'short', 
+          day: 'numeric', 
+          month: 'short', 
+          year: 'numeric' 
+        })}
+        kegiatan={jurnal.kegiatan}
+        // Sesuaikan dengan nama kolom status_verifikasi di DB
+        status={jurnal.status_verifikasi} 
+        // Sesuaikan dengan nama kolom catatan_guru di DB
+        feedback={jurnal.catatan_guru || "Belum ada feedback"}
+        onView={() => handleView(jurnal)}
+        onEdit={() => handleEdit(jurnal)}
+        // Kirim tanggal asli untuk keperluan hapus/identifikasi
+        onDelete={() => handleDelete(jurnal.tanggal)} 
+      />
+    ))
+  )}
 </tbody>
           </table>
         </div>
