@@ -83,7 +83,24 @@ export default function JurnalHarianSiswa() {
     setSelectedData(null)
     setModalOpen(true)
   }
+const handleView = (data: any) => {
 
+  setModalMode("view")
+
+  setSelectedData(data) // Mengirim seluruh baris logbook
+
+  setModalOpen(true)
+
+}
+const handleDelete = (data: any) => {
+
+  setModalMode("delete")
+
+  setSelectedData(data) // Kirim object lengkap (termasuk ID), jangan cuma tanggalnya
+
+  setModalOpen(true)
+
+}
   const handleEdit = (data: any) => {
     setModalMode("edit")
     setSelectedData(data)
