@@ -46,7 +46,7 @@ export async function loginAction(formData: FormData) {
   // 4. Simpan ke Cookie (Next.js 15 wajib await)
   const cookieStore = await cookies();
   cookieStore.set("session_token", token, {
-    httpOnly: true,
+    httpOnly: false,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
@@ -67,7 +67,7 @@ if (userRole === "guru") {
   }
 
   cookieStore.set("guru_id", guru.id.toString(), {
-    httpOnly: true,
+    httpOnly: false,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
