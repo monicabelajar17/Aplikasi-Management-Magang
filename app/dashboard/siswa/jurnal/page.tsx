@@ -107,48 +107,77 @@ const handleDelete = (data: any) => {
     setModalOpen(true)
   }
 
-  const handleSave = async (formData: any) => {
-    setLoading(true);
-    try {
-      if (modalMode === "edit") {
-        const { error } = await supabase
-          .from('logbook')
-          .update({
-            tanggal: formData.tanggal,
-            kegiatan: formData.kegiatan,
-            kendala: formData.kendala,
-            status_verifikasi: 'pending' 
-          })
-          .eq('id', selectedData.id);
+const handleSave = async (formData: any) => {
+  setLoading(true);
+  try {
+    let finalFileUrl = formData.lampiran_url || (selectedData ? selectedData.file : "");
 
-        if (error) throw error;
-        toast.success("Jurnal berhasil diperbarui!");
-      } else {
-        const cookies = document.cookie.split('; ');
-        const siswaId = cookies.find(row => row.startsWith('siswa_id='))?.split('=')[1];
-        const { data: magang } = await supabase.from('magang').select('id').eq('siswa_id', siswaId).single();
-        if (!magang) throw new Error("Data magang tidak ditemukan");
+    // 1. Logika Upload ke Storage "Gambar Alat"
+    if (formData.file) {
+      const file = formData.file;
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `jurnal/${fileName}`;
 
-        const { error } = await supabase.from('logbook').insert([{
-          magang_id: magang.id,
-          tanggal: formData.tanggal,
-          kegiatan: formData.kegiatan,
-          kendala: formData.kendala,
-          status_verifikasi: 'pending',
-          is_deleted: false
-        }]);
+      // Pakai nama bucket: Gambar Alat
+      const { error: uploadError } = await supabase.storage
+        .from('Gambar Alat') 
+        .upload(filePath, file);
 
-        if (error) throw error;
-        toast.success("Jurnal baru berhasil ditambahkan!");
-      }
-      setModalOpen(false);
-      fetchData(); 
-    } catch (error: any) {
-      toast.error("Gagal: " + error.message);
-    } finally {
-      setLoading(false);
+      if (uploadError) throw uploadError;
+
+      // Ambil Public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('Gambar Alat')
+        .getPublicUrl(filePath);
+      
+      finalFileUrl = publicUrl;
     }
-  };
+
+    // 2. Siapkan Payload untuk Database (Nama kolom: file)
+    const payload = {
+      tanggal: formData.tanggal,
+      kegiatan: formData.kegiatan,
+      kendala: formData.kendala,
+      file: finalFileUrl, // Nama atribut kolom di tabel logbook adalah 'file'
+      status_verifikasi: 'pending'
+    };
+
+    if (modalMode === "edit") {
+      const { error } = await supabase
+        .from('logbook')
+        .update(payload)
+        .eq('id', selectedData.id);
+      
+      if (error) throw error;
+      toast.success("Jurnal berhasil diperbarui!");
+    } else {
+      // Ambil magang_id dari cookie/logic sebelumnya
+      const cookies = document.cookie.split('; ');
+      const siswaId = cookies.find(row => row.startsWith('siswa_id='))?.split('=')[1];
+      const { data: magang } = await supabase.from('magang').select('id').eq('siswa_id', siswaId).single();
+
+      if (!magang) throw new Error("Data magang tidak ditemukan");
+
+      const { error } = await supabase.from('logbook').insert([{
+        ...payload,
+        magang_id: magang.id,
+        is_deleted: false
+      }]);
+      
+      if (error) throw error;
+      toast.success("Jurnal baru berhasil ditambahkan!");
+    }
+
+    setModalOpen(false);
+    fetchData();
+  } catch (error: any) {
+    toast.error("Gagal: " + error.message);
+    console.error(error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const executeDelete = async () => {
     if (!selectedData?.id) return;
@@ -172,7 +201,7 @@ const handleDelete = (data: any) => {
   });
 
   const totalJurnal = jurnals.length
-  const disetujui = jurnals.filter(j => j.status_verifikasi === 'disetujui').length
+  const disetujui = jurnals.filter(j => j.status_verifikasi === 'diterima').length
   const pending = jurnals.filter(j => j.status_verifikasi === 'pending').length
   const ditolak = jurnals.filter(j => j.status_verifikasi === 'ditolak').length
   return (
@@ -309,9 +338,9 @@ const handleDelete = (data: any) => {
     feedback={jurnal.catatan_guru || "Belum ada feedback"}
     onView={() => handleView(jurnal)}
     onEdit={() => handleEdit(jurnal)}
-    // PERBAIKI INI: Kirim jurnal (object lengkap), bukan cuma tanggal
     onDelete={() => handleDelete(jurnal)} 
   />
+  
 ))
   )}
 </tbody>
@@ -361,30 +390,34 @@ function FilterSelect({ label, placeholder }: any) {
 
 function RiwayatTableRow({ date, kegiatan, status, feedback, onEdit, onDelete, onView }: any) {
   const statusConfig: any = {
-    disetujui: "bg-emerald-50 text-emerald-500",
+    diterima: "bg-emerald-50 text-emerald-500",
     pending: "bg-amber-50 text-amber-500",
     ditolak: "bg-rose-50 text-rose-500",
   }
 
   const statusLabel: any = {
-    disetujui: "Disetujui",
-    pending: "Menunggu Verifikasi",
+    diterima: "Disetujui",
+    pending: "Pending",
     ditolak: "Ditolak",
   }
 
   return (
     <tr className="hover:bg-slate-50/50 transition-colors">
+      {/* 1. Kolom Tanggal */}
       <td className="px-8 py-6 align-top">
         <p className="text-xs font-bold text-slate-700 leading-tight min-w-[100px]">{date}</p>
       </td>
+
+      {/* 2. Kolom Kegiatan (Gambar Dihapus dari Sini) */}
       <td className="px-8 py-6">
-        <div className="max-w-[400px] space-y-3">
-          <div>
-            <p className="text-[10px] font-extrabold text-slate-700 uppercase tracking-tighter mb-1">Kegiatan:</p>
-            <p className="text-[11px] text-slate-500 leading-relaxed italic">{kegiatan}</p>
-          </div>
+        <div className="max-w-[400px]">
+          <p className="text-[11px] text-slate-500 leading-relaxed italic line-clamp-2">
+            {kegiatan}
+          </p>
         </div>
       </td>
+
+      {/* 3. Kolom Status */}
       <td className="px-8 py-6 text-center align-top">
         <div className="flex flex-col items-center gap-1">
           <span className={`text-[9px] font-extrabold px-3 py-1 rounded-lg uppercase tracking-wider ${statusConfig[status]}`}>
@@ -393,6 +426,8 @@ function RiwayatTableRow({ date, kegiatan, status, feedback, onEdit, onDelete, o
           {status === 'ditolak' && <p className="text-[8px] text-rose-400 font-bold uppercase">Perlu diperbaiki</p>}
         </div>
       </td>
+
+      {/* 4. Kolom Feedback */}
       <td className="px-8 py-6 align-top">
         <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl min-w-[180px]">
           <div className="flex items-center gap-1.5 mb-1">
@@ -404,29 +439,19 @@ function RiwayatTableRow({ date, kegiatan, status, feedback, onEdit, onDelete, o
           </p>
         </div>
       </td>
+
+      {/* 5. Kolom Aksi */}
       <td className="px-8 py-6 text-center align-top">
         <div className="flex justify-center gap-2">
-          {/* Tombol Mata (View) - Selalu Ada di Semua Status */}
-          <button 
-            onClick={onView} 
-            className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
-          >
+          <button onClick={onView} className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all">
             <Eye size={16} />
           </button>
-
-          {/* Tombol Edit & Delete - Hanya Ada jika status BUKAN disetujui */}
-          {status !== 'disetujui' && (
+          {status !== 'diterima' && (
             <>
-              <button 
-                onClick={onEdit} 
-                className="p-2 text-slate-400 hover:text-cyan-500 hover:bg-cyan-50 rounded-lg transition-all"
-              >
+              <button onClick={onEdit} className="p-2 text-slate-400 hover:text-cyan-500 hover:bg-cyan-50 rounded-lg transition-all">
                 <Edit size={16} />
               </button>
-              <button 
-                onClick={onDelete} 
-                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-              >
+              <button onClick={onDelete} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
                 <Trash2 size={16} />
               </button>
             </>
