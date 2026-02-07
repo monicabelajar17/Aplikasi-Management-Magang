@@ -12,9 +12,10 @@ interface DashboardLayoutProps {
     full_name: string
     role: 'admin' | 'guru' | 'siswa'
   }
+  schoolName: string
 }
 
-export default function DashboardClientLayout({ children, profile }: DashboardLayoutProps) {
+export default function DashboardClientLayout({ children, profile, schoolName }: DashboardLayoutProps) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -100,9 +101,10 @@ export default function DashboardClientLayout({ children, profile }: DashboardLa
           <div className="bg-slate-50 p-4 rounded-xl flex items-center gap-3">
             <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
             <div className="overflow-hidden">
-              <p className="text-[10px] font-bold text-slate-600 truncate">SMK Brantas</p>
-              <p className="text-[9px] text-slate-400">v1.0</p>
-            </div>
+  {/* Menggunakan prop schoolName */}
+  <p className="text-[10px] font-bold text-slate-600 truncate">{schoolName}</p>
+  <p className="text-[9px] text-slate-400">v1.0</p>
+</div>
           </div>
         </div>
       </aside>
@@ -111,9 +113,10 @@ export default function DashboardClientLayout({ children, profile }: DashboardLa
       <div className="flex-1 flex flex-col">
         <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-10">
           <div>
-            <h2 className="font-bold text-slate-800 text-sm md:text-base">SMK Brantas Karangkates</h2>
-            <p className="text-[10px] text-slate-500 uppercase tracking-widest">Sistem Manajemen Magang</p>
-          </div>
+    {/* Menggunakan prop schoolName */}
+    <h2 className="font-bold text-slate-800 text-sm md:text-base">{schoolName}</h2>
+    <p className="text-[10px] text-slate-500 uppercase tracking-widest">Sistem Manajemen Magang</p>
+  </div>
           
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">

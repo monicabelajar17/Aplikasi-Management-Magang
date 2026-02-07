@@ -2,6 +2,8 @@ import DashboardClientLayout from "./DashboardClientLayout"
 import { cookies } from "next/headers"
 import jwt from "jsonwebtoken"
 import { redirect } from "next/navigation"
+import { createClient } from "@/utils/supabase/server"
+import { Toaster } from "sonner";
 
 export default async function DashboardLayout({
   children,
@@ -12,6 +14,13 @@ export default async function DashboardLayout({
   const token = cookieStore.get("session_token")?.value
 
   if (!token) redirect("/login")
+const supabase = await createClient() // Gunakan supabase server client
+
+  // 1. Ambil data sekolah
+  const { data: schoolData } = await supabase
+    .from('school_settings')
+    .select('nama_sekolah')
+    .single()
 
   let profile: {
     full_name: string
@@ -35,8 +44,13 @@ export default async function DashboardLayout({
 
   // Bungkus children dengan Client Layout dan kirim data profile
   return (
-    <DashboardClientLayout profile={profile}>
+    <DashboardClientLayout 
+      profile={profile} 
+      schoolName={schoolData?.nama_sekolah || "SIMMAS"} // Kirim sebagai prop baru
+    >
+      
       {children}
+      <Toaster position="top-right" richColors closeButton />
     </DashboardClientLayout>
   )
 }
