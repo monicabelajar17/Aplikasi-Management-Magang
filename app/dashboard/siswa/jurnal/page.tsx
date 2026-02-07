@@ -1,22 +1,12 @@
 "use client"
 
-import React, { useState, useEffect } from "react" // Tambah useEffect
+import React, { useState, useEffect } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { toast } from "sonner"
 import { 
-  BookOpen, 
-  Plus, 
-  Search, 
-  Filter, 
-  CheckCircle2, 
-  Clock, 
-  XCircle, 
-  Edit, 
-  Trash2, 
-  Eye,
-  AlertCircle,
-  MessageSquare,
-  ChevronDown
+  BookOpen, Plus, Search, Filter, CheckCircle2, 
+  Clock, XCircle, Edit, Trash2, Eye, AlertCircle, 
+  MessageSquare, ChevronDown 
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,64 +14,70 @@ import FormJurnalModal from "./detail/page"
 
 export default function JurnalHarianSiswa() {
   const supabase = createClient()
-  const [jurnals, setJurnals] = useState<any[]>([]) // State untuk menampung data jurnal
+  
+  // --- STATES ---
+  const [jurnals, setJurnals] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<any>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<"tambah" | "edit" | "delete" | "view">("tambah")
   const [selectedData, setSelectedData] = useState<any>(null)
-
-// Fungsi untuk ambil data yang bisa dipanggil kapan saja
-const fetchData = async () => {
-  setLoading(true);
   
-  // Ambil siswa_id dari cookie
-  const cookies = document.cookie.split('; ');
-  const siswaIdCookie = cookies.find(row => row.startsWith('siswa_id='));
-  const loggedInSiswaId = siswaIdCookie ? siswaIdCookie.split('=')[1] : null;
+  // State untuk Peringatan & Filter
+  const [hasJournalToday, setHasJournalToday] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState("Semua Status")
 
-  if (!loggedInSiswaId) {
-    setLoading(false);
-    return;
-  }
+  // --- FETCH DATA ---
+  const fetchData = async () => {
+    setLoading(true);
+    const cookies = document.cookie.split('; ');
+    const siswaIdCookie = cookies.find(row => row.startsWith('siswa_id='));
+    const loggedInSiswaId = siswaIdCookie ? siswaIdCookie.split('=')[1] : null;
 
-  try {
-    // 1. Cari magang_id berdasarkan siswa_id
-    const { data: magangData, error: magangError } = await supabase
-      .from('magang')
-      .select('id')
-      .eq('siswa_id', loggedInSiswaId)
-      .single();
-
-    if (magangError || !magangData) {
-      setJurnals([]);
+    if (!loggedInSiswaId) {
+      setLoading(false);
       return;
     }
 
-    // 2. Ambil data logbook (jurnal)
-    const { data: logbookData, error: logbookError } = await supabase
-      .from('logbook')
-      .select('*')
-      .eq('magang_id', magangData.id)
-      .eq('is_deleted', false)
-      .order('tanggal', { ascending: false });
+    try {
+      const { data: magangData, error: magangError } = await supabase
+        .from('magang')
+        .select('id')
+        .eq('siswa_id', loggedInSiswaId)
+        .single();
 
-    if (!logbookError) {
-      setJurnals(logbookData || []);
+      if (magangError || !magangData) {
+        setJurnals([]);
+        return;
+      }
+
+      const { data: logbookData, error: logbookError } = await supabase
+        .from('logbook')
+        .select('*')
+        .eq('magang_id', magangData.id)
+        .eq('is_deleted', false)
+        .order('tanggal', { ascending: false });
+
+      if (!logbookError && logbookData) {
+        setJurnals(logbookData);
+        
+        // LOGIKA PERINGATAN: Cek apakah ada jurnal tanggal hari ini
+        const today = new Date().toISOString().split('T')[0];
+        const foundToday = logbookData.some(j => j.tanggal === today);
+        setHasJournalToday(!!foundToday);
+      }
+    } catch (err) {
+      console.error("Fetch Error:", err);
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error("Fetch Error:", err);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
-// Panggil saat pertama kali halaman dibuka
-useEffect(() => {
-  fetchData();
-}, []);
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-
+  // --- HANDLERS ---
   const handleTambah = () => {
     setModalMode("tambah")
     setSelectedData(null)
@@ -89,46 +85,34 @@ useEffect(() => {
   }
 
   const handleEdit = (data: any) => {
-  setModalMode("edit")
-  setSelectedData(data) // Mengirim seluruh baris logbook
-  setModalOpen(true)
-}
-const handleSave = async (formData: any) => {
-  setLoading(true);
-  try {
-    if (modalMode === "edit") {
-      // --- LOGIKA EDIT (UPDATE) ---
-      const { error } = await supabase
-        .from('logbook')
-        .update({
-          tanggal: formData.tanggal,
-          kegiatan: formData.kegiatan,
-          kendala: formData.kendala,
-          status_verifikasi: 'pending' // Reset status jika diedit
-        })
-        .eq('id', selectedData.id); // Mencari data berdasarkan ID
+    setModalMode("edit")
+    setSelectedData(data)
+    setModalOpen(true)
+  }
 
-      if (error) throw error;
-      toast.success("Jurnal berhasil diperbarui!");
+  const handleSave = async (formData: any) => {
+    setLoading(true);
+    try {
+      if (modalMode === "edit") {
+        const { error } = await supabase
+          .from('logbook')
+          .update({
+            tanggal: formData.tanggal,
+            kegiatan: formData.kegiatan,
+            kendala: formData.kendala,
+            status_verifikasi: 'pending' 
+          })
+          .eq('id', selectedData.id);
 
-    } else {
-      // --- LOGIKA TAMBAH (INSERT) ---
-      // 1. Ambil magang_id dulu (seperti yang kita bahas sebelumnya)
-      const cookies = document.cookie.split('; ');
-      const siswaId = cookies.find(row => row.startsWith('siswa_id='))?.split('=')[1];
-      
-      const { data: magang } = await supabase
-        .from('magang')
-        .select('id')
-        .eq('siswa_id', siswaId)
-        .single();
+        if (error) throw error;
+        toast.success("Jurnal berhasil diperbarui!");
+      } else {
+        const cookies = document.cookie.split('; ');
+        const siswaId = cookies.find(row => row.startsWith('siswa_id='))?.split('=')[1];
+        const { data: magang } = await supabase.from('magang').select('id').eq('siswa_id', siswaId).single();
+        if (!magang) throw new Error("Data magang tidak ditemukan");
 
-      if (!magang) throw new Error("Data magang tidak ditemukan");
-
-      // 2. Insert data baru
-      const { error } = await supabase
-        .from('logbook')
-        .insert([{
+        const { error } = await supabase.from('logbook').insert([{
           magang_id: magang.id,
           tanggal: formData.tanggal,
           kegiatan: formData.kegiatan,
@@ -137,56 +121,43 @@ const handleSave = async (formData: any) => {
           is_deleted: false
         }]);
 
-      if (error) throw error;
-      toast.success("Jurnal baru berhasil ditambahkan!");
+        if (error) throw error;
+        toast.success("Jurnal baru berhasil ditambahkan!");
+      }
+      setModalOpen(false);
+      fetchData(); 
+    } catch (error: any) {
+      toast.error("Gagal: " + error.message);
+    } finally {
+      setLoading(false);
     }
-
-    // Tutup modal dan refresh tabel
-    setModalOpen(false);
-    fetchData(); 
-
-  } catch (error: any) {
-    toast.error("Gagal: " + error.message);
-  } finally {
-    setLoading(false);
-  }
-};
-
-const handleView = (data: any) => {
-  setModalMode("view")
-  setSelectedData(data) // Mengirim seluruh baris logbook
-  setModalOpen(true)
-}
-
-  const handleDelete = (data: any) => {
-  setModalMode("delete")
-  setSelectedData(data) // Kirim object lengkap (termasuk ID), jangan cuma tanggalnya
-  setModalOpen(true)
-}
+  };
 
   const executeDelete = async () => {
-  if (!selectedData?.id) return;
+    if (!selectedData?.id) return;
+    try {
+      const { error } = await supabase.from('logbook').update({ is_deleted: true }).eq('id', selectedData.id);
+      if (error) throw error;
+      toast.success("Jurnal berhasil dihapus");
+      setModalOpen(false);
+      fetchData();
+    } catch (error: any) {
+      toast.error("Gagal menghapus: " + error.message);
+    }
+  };
 
-  try {
-    const { error } = await supabase
-      .from('logbook')
-      .update({ is_deleted: true }) // Ubah status jadi true
-      .eq('id', selectedData.id);
+  // --- LOGIKA FILTERING ---
+  const filteredJurnals = jurnals.filter(j => {
+    const matchesSearch = j.kegiatan.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          (j.kendala?.toLowerCase() || "").includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === "Semua Status" || j.status_verifikasi === statusFilter.toLowerCase();
+    return matchesSearch && matchesStatus;
+  });
 
-    if (error) throw error;
-
-    toast.success("Jurnal berhasil dihapus");
-    setModalOpen(false);
-    fetchData(); // Ambil ulang data agar yang 'true' tidak muncul lagi
-  } catch (error: any) {
-    toast.error("Gagal menghapus: " + error.message);
-  }
-};
-
-const totalJurnal = jurnals.length
-const disetujui = jurnals.filter(j => j.status_verifikasi === 'disetujui').length
-const pending = jurnals.filter(j => j.status_verifikasi === 'pending').length
-const ditolak = jurnals.filter(j => j.status_verifikasi === 'ditolak').length
+  const totalJurnal = jurnals.length
+  const disetujui = jurnals.filter(j => j.status_verifikasi === 'disetujui').length
+  const pending = jurnals.filter(j => j.status_verifikasi === 'pending').length
+  const ditolak = jurnals.filter(j => j.status_verifikasi === 'ditolak').length
   return (
     <div className="space-y-8">
       {/* HEADER SECTION */}
@@ -200,21 +171,29 @@ const ditolak = jurnals.filter(j => j.status_verifikasi === 'ditolak').length
       </Button>
       </div>
 
-      {/* ALERT REMINDER - Sesuai gambar */}
-      <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex items-center justify-between shadow-sm shadow-amber-50">
-        <div className="flex items-center gap-3">
-          <div className="bg-amber-100 p-2 rounded-xl text-amber-600">
-            <AlertCircle size={20} />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-amber-800">Jangan Lupa Jurnal Hari Ini!</p>
-            <p className="text-[11px] text-amber-700/80">Anda belum membuat jurnal untuk hari ini. Dokumentasikan kegiatan magang Anda sekarang.</p>
-          </div>
-        </div>
-        <Button size="sm" className="bg-[#E67E22] hover:bg-orange-600 text-white rounded-xl text-[11px] font-bold px-4">
-          Buat Sekarang
-        </Button>
+      {/* Tampilkan Banner hanya jika belum ada jurnal hari ini dan tidak sedang loading */}
+{!loading && !hasJournalToday && (
+  <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex items-center justify-between shadow-sm shadow-amber-50 animate-in fade-in slide-in-from-top-4">
+    <div className="flex items-center gap-3">
+      <div className="bg-amber-100 p-2 rounded-xl text-amber-600">
+        <AlertCircle size={20} />
       </div>
+      <div>
+        <p className="text-sm font-bold text-amber-800">Jangan Lupa Jurnal Hari Ini!</p>
+        <p className="text-[11px] text-amber-700/80">
+          Anda belum membuat jurnal untuk hari ini ({new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long' })}).
+        </p>
+      </div>
+    </div>
+    <Button 
+      onClick={handleTambah} // Sama fungsinya dengan tombol tambah di atas
+      size="sm" 
+      className="bg-[#E67E22] hover:bg-orange-600 text-white rounded-xl text-[11px] font-bold px-4"
+    >
+      Buat Sekarang
+    </Button>
+  </div>
+)}
 
       {/* STATS GRID - 4 Kolom sesuai gambar */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -299,7 +278,7 @@ const ditolak = jurnals.filter(j => j.status_verifikasi === 'ditolak').length
       </td>
     </tr>
   ) : (
-    jurnals.map((jurnal) => (
+    filteredJurnals.map((jurnal) => (
   <RiwayatTableRow 
     key={jurnal.id}
     date={new Date(jurnal.tanggal).toLocaleDateString('id-ID', { 
