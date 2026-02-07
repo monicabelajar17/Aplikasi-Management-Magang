@@ -23,64 +23,53 @@ export default function DudiGuruPage() {
   // Ambil data dari tabel DUDI
 // Ambil data dari tabel DUDI berdasarkan relasi di tabel magang
   const fetchDudi = async () => {
-    if (!guruId) return
-    setLoading(true)
+  if (!guruId) return
+  setLoading(true)
 
-    // Logika: Kita ambil data dari tabel MAGANG yang guru_id nya cocok
-    // Lalu kita tarik data DUDI (perusahaan) yang terkait
-    const { data, error } = await supabase
-      .from("magang")
-      .select(`
+  const { data, error } = await supabase
+    .from("dudi")
+    .select(`
+      id,
+      nama_perusahaan,
+      alamat,
+      email,
+      telepon,
+      penanggung_jawab,
+      magang!inner (
         id,
         status,
-        guru_id,
-        dudi (
-          id,
-          nama_perusahaan,
-          alamat,
-          email,
-          telepon,
-          penanggung_jawab
-        )
-      `)
-      .eq("guru_id", guruId) // Filter berdasarkan guru yang membimbing
-      .eq("status", "aktif") // Hanya yang status magangnya aktif
+        siswa!inner ( guru_id )
+      )
+    `)
+    .eq("magang.status", "berlangsung")
+    .eq("magang.siswa.guru_id", guruId)
+    .eq("is_deleted", false)
 
-    if (error) {
-      console.error("Error fetching data:", error.message)
-      setLoading(false)
-      return
-    }
-
-    // Karena satu DUDI bisa punya banyak siswa, kita kelompokkan berdasarkan DUDI ID
-    // agar di tabel tidak muncul nama perusahaan yang sama berulang kali
-    const groupedDudi = data.reduce((acc: any[], current: any) => {
-      const dudiData = current.dudi;
-      if (!dudiData) return acc;
-
-      const existingDudi = acc.find(item => item.id === dudiData.id);
-
-      if (existingDudi) {
-        existingDudi.siswa_count += 1;
-      } else {
-        acc.push({
-          ...dudiData,
-          siswa_count: 1
-        });
-      }
-      return acc;
-    }, []);
-
-    setDudiList(groupedDudi)
+  if (error) {
+    console.error(error)
     setLoading(false)
+    return
   }
 
+  const formatted = data.map((dudi: any) => ({
+    ...dudi,
+    siswa_count: dudi.magang.length
+  }))
+
+  setDudiList(formatted)
+  setLoading(false)
+}
+
 useEffect(() => {
-  const id = Number(getCookie("guru_id"))
-  if (id) {
+  const cookie = getCookie("guru_id")
+  if (!cookie) return
+
+  const id = parseInt(cookie)
+  if (!isNaN(id)) {
     setGuruId(id)
   }
 }, [])
+
 
   useEffect(() => {
   if (guruId) {
@@ -98,8 +87,15 @@ useEffect(() => {
 
   // Hitung statistik sederhana
   const totalDudi = dudiList.length;
-  const totalSiswaAktif = dudiList.reduce((acc, curr) => acc + curr.siswa_count, 0);
-  const rataRata = dudiList.length > 0 ? (totalSiswaAktif / dudiList.length).toFixed(1) : "0";
+  const totalSiswaAktif = dudiList.reduce(
+  (total, dudi) => total + (dudi.siswa_count || 0),
+  0
+)
+  const rataRata =
+  dudiList.length > 0
+    ? Math.round(totalSiswaAktif / dudiList.length).toString()
+    : "0"
+
 
   return (
     <div className="space-y-8">

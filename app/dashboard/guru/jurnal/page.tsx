@@ -377,7 +377,7 @@ const ditolakLogbook = jurnals.filter(j => j.status_verifikasi === 'ditolak').le
           <XCircle size={16} /> Tolak
         </Button>
         <Button 
-          onClick={() => handleVerifikasi('disetujui')}
+          onClick={() => handleVerifikasi('diterima')}
           className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl px-6 font-bold gap-2 shadow-lg shadow-emerald-100"
         >
           <CheckCircle size={16} /> Setujui
