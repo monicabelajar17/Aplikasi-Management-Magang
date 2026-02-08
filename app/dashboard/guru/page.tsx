@@ -189,7 +189,7 @@ const { count: logbookToday } = await supabase
                   name={m.siswa?.nama}
                   company={m.dudi?.nama_perusahaan}
                   date={`${m.tanggal_mulai} - ${m.tanggal_selesai}`}
-                  badge="AM"
+                  badge={m.status}
                 />
               ))}
             </div>
@@ -268,6 +268,20 @@ function StatCard({ title, value, sub, icon }: any) {
 }
 
 function ListMember({ name, company, date, badge }: any) {
+  // Logika warna berdasarkan status
+  const getStatusStyle = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'berlangsung':
+        return 'bg-amber-100 text-amber-700';
+      case 'selesai':
+        return 'bg-emerald-100 text-emerald-700';
+      case 'menunggu':
+        return 'bg-slate-100 text-slate-700';
+      default:
+        return 'bg-lime-100 text-lime-700';
+    }
+  };
+
   return (
     <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
       <div className="flex items-center gap-4">
@@ -280,7 +294,8 @@ function ListMember({ name, company, date, badge }: any) {
           <p className="text-[10px] text-slate-400">{date}</p>
         </div>
       </div>
-      <span className="text-[10px] bg-lime-100 text-lime-700 px-2 py-1 rounded-md font-bold">
+      {/* Gunakan fungsi style di sini */}
+      <span className={`text-[10px] px-2 py-1 rounded-md font-bold uppercase ${getStatusStyle(badge)}`}>
         {badge}
       </span>
     </div>

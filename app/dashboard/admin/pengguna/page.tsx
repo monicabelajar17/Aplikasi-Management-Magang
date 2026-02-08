@@ -192,7 +192,7 @@ const handleAddUser = async (e: React.FormEvent) => {
         </div>
         <Button 
   onClick={() => setIsAddModalOpen(true)} // Buka modal
-  className="bg-[#00A9C1] hover:bg-cyan-600 rounded-xl gap-2 shadow-lg shadow-cyan-100 py-6 px-6"
+  className="bg-[#0A2659] hover:bg-cyan-600 rounded-xl gap-2 shadow-lg shadow-cyan-100 py-6 px-6"
 >
   <Plus size={20} /> Tambah User
 </Button>
