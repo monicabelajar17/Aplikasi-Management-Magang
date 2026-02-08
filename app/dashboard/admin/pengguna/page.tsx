@@ -442,7 +442,7 @@ function UserTableRow({ user, onDelete, onEdit }: any) {
   },
   siswa: {
     label: "Siswa",
-    class: "bg-cyan-100 text-cyan-700 border border-cyan-200",
+    class: "bg-emerald-100 text-emerald-700 border border-emerald-200",
     icon: <UserIcon size={12} />
   }
 }
