@@ -72,22 +72,30 @@ async function fetchDropdownData() {
   async function fetchMagangData(guruId: number) {
   setLoading(true)
 
+  // Pastikan guruId benar-benar angka
+  const targetId = Number(guruId)
+
   const { data, error } = await supabase
     .from("magang")
     .select(`
-  id, status, tanggal_mulai, tanggal_selesai, nilai,
-  siswa:siswa_id ( id, nama, nis, kelas ),
-  dudi:dudi_id ( id, nama_perusahaan ),
-  guru:guru_id ( id, nama )
-`)
-    .eq("guru_id", guruId)
+      id, 
+      status, 
+      tanggal_mulai, 
+      tanggal_selesai, 
+      nilai_akhir,
+      siswa ( id, nama, nis, kelas ), 
+      dudi ( id, nama_perusahaan )
+    `)
+    .eq("guru_id", targetId) // Filter berdasarkan ID Guru
 
-  console.log("DATA MAGANG:", data, error)
-
-  setMagangData(data || [])
+  if (error) {
+    console.error("Kesalahan Fetch:", error.message)
+  } else {
+    console.log("Data dari DB:", data) // Cek di console apakah array ini ada isinya
+    setMagangData(data || [])
+  }
   setLoading(false)
 }
-
 
   // --- 2. FUNGSI MODAL ---
   const openModal = (type: "tambah" | "edit" | "hapus", data: any = null) => {
@@ -110,31 +118,45 @@ async function fetchDropdownData() {
 
   const handleSave = async (e: React.FormEvent) => {
   e.preventDefault();
-  
-  // Ambil ID guru dari state yang kita isi dari cookie tadi
   const currentGuruId = currentUser?.id;
+  if (!currentGuruId) return alert("Sesi berakhir, silakan login ulang");
 
-  if (!currentGuruId) return alert("Sesi guru berakhir, silakan login ulang");
-
+  // Sesuaikan payload dengan nama kolom di gambar database kamu
   const payload = {
-  siswa_id: Number(formData.siswa_id),
-  dudi_id: Number(formData.dudi_id),
-  guru_id: Number(currentGuruId),
-  tanggal_mulai: formData.tanggal_mulai,
-  tanggal_selesai: formData.tanggal_selesai,
-  status: formData.status,
-  nilai: formData.nilai ? Number(formData.nilai) : null
-};
+    siswa_id: Number(formData.siswa_id),
+    dudi_id: Number(formData.dudi_id),
+    guru_id: Number(currentGuruId),
+    tanggal_mulai: formData.tanggal_mulai || null, // Jika "" maka jadi null
+    tanggal_selesai: formData.tanggal_selesai || null, // Jika "" maka jadi null
+    status: formData.status,
+    nilai_akhir: formData.nilai ? Number(formData.nilai) : null 
+  };
 
-  if (modalType === "tambah") {
-    const { error } = await supabase.from('magang').insert([payload]);
-    if (error) console.error(error);
-  } else if (modalType === "edit") {
-    await supabase.from('magang').update(payload).eq('id', selectedData.id);
+  try {
+    if (modalType === "tambah") {
+      const { error } = await supabase.from('magang').insert([payload]);
+      if (error) throw error;
+    } else if (modalType === "edit") {
+      const { error } = await supabase
+        .from('magang')
+        .update(payload)
+        .eq('id', selectedData.id);
+      if (error) throw error;
+    }
+    else if (modalType === "hapus") {
+  const { error } = await supabase
+    .from('magang')
+    .delete()
+    .eq('id', selectedData.id);
+  if (error) throw error;
+}
+    setModalOpen(false);
+    fetchMagangData(currentGuruId);
+    alert("Data berhasil disimpan!");
+  } catch (err: any) {
+    console.error("Detail Error:", err.message, err.details, err.hint);
+    alert("Gagal menyimpan: " + err.message);
   }
-  
-  setModalOpen(false);
-  fetchMagangData(currentGuruId); // Refresh tabel
 };
 
   // Filter Search
@@ -162,7 +184,7 @@ async function fetchDropdownData() {
       {/* STATS GRID (Dinamis dari Data) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard title="Total Bimbingan" value={magangData.length} sub="Siswa Anda" icon={<GraduationCap className="text-cyan-500" />} />
-        <StatCard title="Aktif" value={magangData.filter(m => m.status === 'aktif').length} sub="Sedang magang" icon={<UserCheck className="text-emerald-500" />} />
+        <StatCard title="Aktif" value={magangData.filter(m => m.status === 'berlangsung').length} sub="Sedang magang" icon={<UserCheck className="text-emerald-500" />} />
         <StatCard title="Selesai" value={magangData.filter(m => m.status === 'selesai').length} sub="Magang selesai" icon={<CheckCircle className="text-blue-500" />} />
         <StatCard title="Pending" value={magangData.filter(m => m.status === 'pending').length} sub="Menunggu" icon={<Clock className="text-amber-500" />} />
       </div>
@@ -202,7 +224,7 @@ async function fetchDropdownData() {
                     nis: m.siswa?.nis,
                     dudi: m.dudi?.nama_perusahaan,
                     status: m.status,
-                    score: m.nilai,
+                    score: m.nilai_akhir,
                     mulai: m.tanggal_mulai,
                     selesai: m.tanggal_selesai
                   }}
@@ -237,13 +259,15 @@ async function fetchDropdownData() {
                       <label className="text-xs font-bold text-slate-600">Siswa</label>
                       {modalType === "tambah" ? (
                         <select 
-                          className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                          value={formData.siswa_id}
-                          onChange={(e) => setFormData({...formData, siswa_id: e.target.value})}
-                        >
-                          <option value="">Pilih Siswa</option>
-                          {/* Map daftar siswa dari state dropdown di sini */}
-                        </select>
+  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+  value={formData.siswa_id}
+  onChange={(e) => setFormData({...formData, siswa_id: e.target.value})}
+>
+  <option value="">Pilih Siswa</option>
+  {siswaList.map((s) => (
+    <option key={s.id} value={s.id}>{s.nama}</option>
+  ))}
+</select>
                       ) : (
                         <div className="p-2.5 bg-slate-100 rounded-xl text-sm font-bold">{selectedData?.siswa?.nama}</div>
                       )}
@@ -262,13 +286,15 @@ async function fetchDropdownData() {
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-slate-600">Tempat Magang (DUDI)</label>
                     <select 
-                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                      value={formData.dudi_id}
-                      onChange={(e) => setFormData({...formData, dudi_id: e.target.value})}
-                    >
-                      <option value="">Pilih DUDI</option>
-                      {/* Map daftar DUDI dari state dropdown di sini */}
-                    </select>
+  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+  value={formData.dudi_id}
+  onChange={(e) => setFormData({...formData, dudi_id: e.target.value})}
+>
+  <option value="">Pilih DUDI</option>
+  {dudiList.map((d) => (
+    <option key={d.id} value={d.id}>{d.nama_perusahaan}</option>
+  ))}
+</select>
                   </div>
 
                   <div className="grid grid-cols-3 gap-4">
@@ -280,7 +306,7 @@ async function fetchDropdownData() {
                         onChange={(e) => setFormData({...formData, status: e.target.value})}
                       >
                         <option value="pending">Pending</option>
-                        <option value="aktif">Aktif</option>
+                        <option value="berlangsung">Aktif</option>
                         <option value="selesai">Selesai</option>
                       </select>
                     </div>
@@ -334,7 +360,7 @@ function StatCard({ title, value, sub, icon }: any) {
 
 function MagangTableRow({ data, onEdit, onDelete }: any) {
   const statusConfig: any = {
-    aktif: "bg-emerald-50 text-emerald-500",
+    berlangsung: "bg-emerald-50 text-emerald-500",
     selesai: "bg-blue-50 text-blue-500",
     pending: "bg-amber-50 text-amber-500",
   }
