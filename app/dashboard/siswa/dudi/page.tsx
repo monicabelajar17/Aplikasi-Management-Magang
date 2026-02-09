@@ -129,7 +129,53 @@ const handleDaftar = async (dudiId: number) => {
     setLoading(false);
   }
 };
+// Tambahkan state baru untuk menyimpan jumlah terisi
+const [occupiedCounts, setOccupiedCounts] = useState<Record<number, number>>({});
 
+useEffect(() => {
+  const fetchInitialData = async () => {
+    setLoading(true);
+    
+    // 1. Ambil data DUDI
+    const { data: dudiData } = await supabase.from('dudi').select('*');
+   if (dudiData) setDudiList(dudiData);
+
+    // 2. Ambil jumlah siswa yang SUDAH diterima (status: 'aktif' atau 'selesai') per DUDI
+    // Kita hitung dari tabel magang
+    const { data: countData } = await supabase
+  .from('magang')
+  .select('dudi_id')
+  // SESUAIKAN: ganti dengan status yang ada di database kamu
+  .in('status', ['diterima', 'berlangsung']); 
+
+if (countData) {
+  const counts: Record<number, number> = {};
+  countData.forEach(item => {
+    counts[item.dudi_id] = (counts[item.dudi_id] || 0) + 1;
+  });
+  console.log("Jumlah Terisi per DUDI:", counts); // Cek di console untuk memastikan
+  setOccupiedCounts(counts);
+}
+    // 3. Ambil riwayat pendaftaran siswa ini (untuk status tombol)
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; siswa_id=`);
+    const siswaId = parts.length === 2 ? parts.pop()?.split(';').shift() : null;
+
+    if (siswaId) {
+      const { data: magangRecords } = await supabase
+        .from('magang')
+        .select('dudi_id')
+        .eq('siswa_id', parseInt(siswaId));
+      
+      if (magangRecords) {
+        setAppliedIds(magangRecords.map(m => m.dudi_id));
+      }
+    }
+    setLoading(false);
+  };
+
+  fetchInitialData();
+}, []);
   const filteredDudi = dudiList.filter((dudi) => {
   const nama = dudi.nama_perusahaan || ""
   const bidang = dudi.bidang_dudi || ""
@@ -180,7 +226,8 @@ const handleDaftar = async (dudiId: number) => {
   {filteredDudi.map((dudi) => (
   <DudiCard 
     key={dudi.id}
-    dudi={dudi} // Kirim objek utuh saja agar konsisten dengan interface Dudi
+    dudi={dudi}
+    occupied={occupiedCounts[dudi.id] || 0} // Kirim jumlah yang terisi
     isApplied={appliedIds.includes(dudi.id)}
     onDetail={() => setSelectedDudi(dudi)}
     onDaftar={() => handleDaftar(dudi.id)}
@@ -270,13 +317,14 @@ const handleDaftar = async (dudiId: number) => {
 
 function DudiCard({ 
   dudi, 
+  occupied, // tambahkan prop ini
   isApplied, 
   onDetail, 
   onDaftar 
-}: { dudi: Dudi, isApplied: boolean, onDetail: () => void, onDaftar: () => void }) {
+}: { dudi: Dudi, occupied: number, isApplied: boolean, onDetail: () => void, onDaftar: () => void }) {
   
-  // Hitung sisa kuota (asumsi kuota penuh jika belum ada join table)
-  const remaining = dudi.kuota_magang; 
+  const remaining = dudi.kuota_magang - occupied;
+  const progressPercent = (occupied / dudi.kuota_magang) * 100;
 
   return (
     <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm hover:shadow-xl transition-all flex flex-col group">
@@ -291,7 +339,12 @@ function DudiCard({
 
       {/* SESUAIKAN DENGAN DATABASE */}
       <h3 className="text-lg font-black text-slate-800 mb-1">{dudi.nama_perusahaan}</h3>
-      <p className="text-xs font-bold text-cyan-500 mb-4">{dudi.bidang_dudi}</p>
+      <div className="flex items-center gap-2 mb-4">
+        <p className="text-xs font-bold text-cyan-500">{dudi.bidang_dudi}</p>
+        <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold ${remaining > 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
+          {remaining > 0 ? `Sisa: ${remaining} Slot` : 'Kuota Penuh'}
+        </span>
+      </div>
 
       <div className="space-y-3 mb-6">
         <div className="flex items-center gap-2 text-[11px] text-slate-400 truncate">
@@ -303,13 +356,17 @@ function DudiCard({
       </div>
 
       {/* Progress Bar Kuota */}
+      {/* Progress Bar Kuota Dinamis */}
       <div className="bg-slate-50 p-4 rounded-2xl mb-6">
         <div className="flex justify-between mb-2">
-          <p className="text-[10px] font-black text-slate-400 uppercase">Total Kuota</p>
-          <p className="text-[10px] font-black text-slate-800">{dudi.kuota_magang} Siswa</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase">Kapasitas Terisi</p>
+          <p className="text-[10px] font-black text-slate-800">{occupied} / {dudi.kuota_magang} Siswa</p>
         </div>
         <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
-          <div className="h-full bg-cyan-500 rounded-full" style={{ width: `100%` }} />
+          <div 
+            className={`h-full rounded-full transition-all duration-500 ${remaining === 0 ? 'bg-red-500' : 'bg-cyan-500'}`} 
+            style={{ width: `${progressPercent}%` }} 
+          />
         </div>
       </div>
 
