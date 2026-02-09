@@ -156,7 +156,7 @@ const ditolakLogbook = jurnals.filter(j => j.status_verifikasi === 'ditolak').le
       </div>
 
       {/* STATS GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
   <StatCard 
     title="Total Logbook" 
     value={totalLogbook.toString()} 
@@ -169,6 +169,8 @@ const ditolakLogbook = jurnals.filter(j => j.status_verifikasi === 'ditolak').le
     sub="Menunggu verifikasi" 
     icon={<Clock className="text-amber-500" />} 
   />
+</div>
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
   <StatCard 
     title="Disetujui" 
     value={disetujuiLogbook.toString()} 

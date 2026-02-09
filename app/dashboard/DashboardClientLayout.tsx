@@ -83,6 +83,13 @@ export default function DashboardClientLayout({ children, profile, schoolName }:
 
           {isAdmin && (
             <>
+              <NavItem 
+      icon={<GraduationCap size={20}/>} 
+      label="Magang" 
+      sub="Manajemen pendaftaran" 
+      active={pathname.includes("/admin/magang")} 
+      href="/dashboard/admin/magang" 
+    />
               <NavItem icon={<Users size={20}/>} label="Pengguna" sub="Kelola user" active={pathname.includes("/pengguna")} href="/dashboard/admin/pengguna" />
               <NavItem icon={<Settings size={20}/>} label="Pengaturan" sub="Sistem" active={pathname.includes("/pengaturan")} href="/dashboard/admin/pengaturan" />
             </>
