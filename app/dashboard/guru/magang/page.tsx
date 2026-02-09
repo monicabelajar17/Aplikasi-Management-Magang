@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { createClient } from "@/utils/supabase/client"
+import { Toaster, toast } from "sonner"
 
 export default function ManajemenMagangGuru() {
   const supabase = createClient()
@@ -119,15 +120,14 @@ async function fetchDropdownData() {
   const handleSave = async (e: React.FormEvent) => {
   e.preventDefault();
   const currentGuruId = currentUser?.id;
-  if (!currentGuruId) return alert("Sesi berakhir, silakan login ulang");
+  if (!currentGuruId) return toast.error("Sesi berakhir, silakan login ulang");
 
-  // Sesuaikan payload dengan nama kolom di gambar database kamu
   const payload = {
     siswa_id: Number(formData.siswa_id),
     dudi_id: Number(formData.dudi_id),
     guru_id: Number(currentGuruId),
-    tanggal_mulai: formData.tanggal_mulai || null, // Jika "" maka jadi null
-    tanggal_selesai: formData.tanggal_selesai || null, // Jika "" maka jadi null
+    tanggal_mulai: formData.tanggal_mulai || null,
+    tanggal_selesai: formData.tanggal_selesai || null,
     status: formData.status,
     nilai_akhir: formData.nilai ? Number(formData.nilai) : null 
   };
@@ -136,26 +136,24 @@ async function fetchDropdownData() {
     if (modalType === "tambah") {
       const { error } = await supabase.from('magang').insert([payload]);
       if (error) throw error;
-    } else if (modalType === "edit") {
-      const { error } = await supabase
-        .from('magang')
-        .update(payload)
-        .eq('id', selectedData.id);
+      toast.success("Berhasil!", { description: "Penempatan magang baru telah ditambahkan." });
+    } 
+    else if (modalType === "edit") {
+      const { error } = await supabase.from('magang').update(payload).eq('id', selectedData.id);
       if (error) throw error;
+      toast.success("Berhasil diperbarui!", { description: "Data magang siswa telah diupdate." });
     }
     else if (modalType === "hapus") {
-  const { error } = await supabase
-    .from('magang')
-    .delete()
-    .eq('id', selectedData.id);
-  if (error) throw error;
-}
+      const { error } = await supabase.from('magang').delete().eq('id', selectedData.id);
+      if (error) throw error;
+      toast.success("Berhasil dihapus!", { description: "Data magang telah dihapus dari sistem." });
+    }
+
     setModalOpen(false);
     fetchMagangData(currentGuruId);
-    alert("Data berhasil disimpan!");
   } catch (err: any) {
-    console.error("Detail Error:", err.message, err.details, err.hint);
-    alert("Gagal menyimpan: " + err.message);
+    console.error("Detail Error:", err);
+    toast.error("Terjadi Kesalahan", { description: err.message });
   }
 };
 
@@ -167,6 +165,7 @@ async function fetchDropdownData() {
 
   return (
     <div className="space-y-8 relative">
+      <Toaster position="top-right" expand={false} richColors />
       {/* HEADER SECTION */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -184,7 +183,7 @@ async function fetchDropdownData() {
       {/* STATS GRID (Dinamis dari Data) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard title="Total Bimbingan" value={magangData.length} sub="Siswa Anda" icon={<GraduationCap className="text-cyan-500" />} />
-        <StatCard title="Aktif" value={magangData.filter(m => m.status === 'berlangsung').length} sub="Sedang magang" icon={<UserCheck className="text-emerald-500" />} />
+        <StatCard title="Berlangsung" value={magangData.filter(m => m.status === 'berlangsung').length} sub="Sedang magang" icon={<UserCheck className="text-emerald-500" />} />
         <StatCard title="Selesai" value={magangData.filter(m => m.status === 'selesai').length} sub="Magang selesai" icon={<CheckCircle className="text-blue-500" />} />
         <StatCard title="Pending" value={magangData.filter(m => m.status === 'pending').length} sub="Menunggu" icon={<Clock className="text-amber-500" />} />
       </div>
@@ -306,8 +305,11 @@ async function fetchDropdownData() {
                         onChange={(e) => setFormData({...formData, status: e.target.value})}
                       >
                         <option value="pending">Pending</option>
-                        <option value="berlangsung">Aktif</option>
+                        <option value="berlangsung">Berlangsung</option>
                         <option value="selesai">Selesai</option>
+                        <option value="diterima">Diterima</option>
+                        <option value="ditolak">Ditolak</option>
+                        <option value="dibatalkan">Dibatalkan</option>
                       </select>
                     </div>
                     <div className="space-y-2">
@@ -363,6 +365,9 @@ function MagangTableRow({ data, onEdit, onDelete }: any) {
     berlangsung: "bg-emerald-50 text-emerald-500",
     selesai: "bg-blue-50 text-blue-500",
     pending: "bg-amber-50 text-amber-500",
+    diterima: "bg-amber-50 text-amber-500",
+    ditolak: "bg-amber-50 text-amber-500",
+    dibatalkan: "bg-amber-50 text-amber-500",
   }
 
   return (
