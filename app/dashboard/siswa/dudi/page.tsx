@@ -38,7 +38,8 @@ export default function DudiSiswaPage() {
   const [showToast, setShowToast] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [appliedIds, setAppliedIds] = useState<number[]>([]);
-
+  const [hasActiveMagang, setHasActiveMagang] = useState(false);
+  
   // Simulasi currentUserId (Biasanya dari session auth)
   const currentUserId = 123; 
 
@@ -77,6 +78,10 @@ export default function DudiSiswaPage() {
   const supabase = createClient()
 
 const handleDaftar = async (dudiId: number) => {
+  if (appliedIds.length >= MAX_DAFTAR) {
+    alert("Batas maksimal pendaftaran DUDI hanya 3 kali.");
+    return;
+  }
   setLoading(true);
   try {
     // 1. Ambil ID Siswa dari Cookie (Karena kamu pakai login manual)
@@ -100,7 +105,15 @@ const handleDaftar = async (dudiId: number) => {
       alert("Kamu sudah mendaftar di perusahaan ini!");
       return;
     }
+const { count } = await supabase
+  .from('magang')
+  .select('*', { count: 'exact', head: true })
+  .eq('siswa_id', siswaId);
 
+if ((count ?? 0) >= 3) {
+  alert("Batas maksimal pendaftaran DUDI hanya 3 kali.");
+  return;
+}
     // 3. Simpan ke database menggunakan Supabase Client
     // Kita langsung tembak ke tabel 'magang'
     const { error: insertError } = await supabase
@@ -131,7 +144,8 @@ const handleDaftar = async (dudiId: number) => {
 };
 // Tambahkan state baru untuk menyimpan jumlah terisi
 const [occupiedCounts, setOccupiedCounts] = useState<Record<number, number>>({});
-
+const MAX_DAFTAR = 3;
+const totalDaftar = appliedIds.length;
 useEffect(() => {
   const fetchInitialData = async () => {
     setLoading(true);
@@ -225,13 +239,14 @@ if (countData) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
   {filteredDudi.map((dudi) => (
   <DudiCard 
-    key={dudi.id}
-    dudi={dudi}
-    occupied={occupiedCounts[dudi.id] || 0} // Kirim jumlah yang terisi
-    isApplied={appliedIds.includes(dudi.id)}
-    onDetail={() => setSelectedDudi(dudi)}
-    onDaftar={() => handleDaftar(dudi.id)}
-  />
+  key={dudi.id}
+  dudi={dudi}
+  occupied={occupiedCounts[dudi.id] || 0}
+  isApplied={appliedIds.includes(dudi.id)}
+  totalDaftar={totalDaftar}
+  onDetail={() => setSelectedDudi(dudi)}
+  onDaftar={() => handleDaftar(dudi.id)}
+/>
 ))}
 </div>
 
@@ -300,9 +315,18 @@ if (countData) {
           {appliedIds.includes(selectedDudi.id) ? (
             <Button disabled className="rounded-xl bg-slate-100 text-slate-400 font-bold px-8">Sudah Mendaftar</Button>
           ) : (
-            <Button onClick={() => { handleDaftar(selectedDudi.id); setSelectedDudi(null); }} className="rounded-xl bg-[#00A9C1] hover:bg-cyan-600 text-white font-bold px-8 gap-2">
-              <Send size={16} /> Daftar Magang
-            </Button>
+            <Button
+  onClick={() => handleDaftar(selectedDudi.id)}
+  disabled={appliedIds.includes(selectedDudi.id) || totalDaftar >= 3}
+  className={`rounded-xl px-8 font-bold ${
+    totalDaftar >= 3
+      ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+      : "bg-[#00A9C1] hover:bg-cyan-600 text-white"
+  }`}
+>
+  {totalDaftar >= 3 ? "Batas Tercapai" : "Daftar"}
+</Button>
+
           )}
         </div>
       </div>
@@ -317,11 +341,20 @@ if (countData) {
 
 function DudiCard({ 
   dudi, 
-  occupied, // tambahkan prop ini
-  isApplied, 
+  occupied,
+  isApplied,
+  totalDaftar,
   onDetail, 
   onDaftar 
-}: { dudi: Dudi, occupied: number, isApplied: boolean, onDetail: () => void, onDaftar: () => void }) {
+}: { 
+  dudi: Dudi;
+  occupied: number;
+  isApplied: boolean;
+  totalDaftar: number;
+  onDetail: () => void;
+  onDaftar: () => void;
+}) {
+
   
   const remaining = dudi.kuota_magang - occupied;
   const progressPercent = (occupied / dudi.kuota_magang) * 100;
@@ -375,7 +408,18 @@ function DudiCard({
         {isApplied ? (
           <Button disabled className="flex-1 rounded-2xl text-xs font-bold bg-slate-100 text-slate-400">Sudah Daftar</Button>
         ) : (
-          <Button onClick={onDaftar} className="flex-1 rounded-2xl text-xs font-bold bg-[#00A9C1] hover:bg-cyan-600 text-white">Daftar</Button>
+          <Button
+  onClick={onDaftar}
+  disabled={isApplied || totalDaftar >= 3}
+  className={`flex-1 rounded-2xl text-xs font-bold ${
+    totalDaftar >= 3
+      ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+      : "bg-[#00A9C1] hover:bg-cyan-600 text-white"
+  }`}
+>
+  {totalDaftar >= 3 ? "Batas Tercapai" : "Daftar"}
+</Button>
+
         )}
       </div>
     </div>
