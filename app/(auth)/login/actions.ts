@@ -60,20 +60,22 @@ if (userRole === "guru") {
     .from("guru")
     .select("id")
     .eq("user_id", user.id)
-    .single()
+    .maybeSingle();
 
-  if (!guru) {
-    return { error: "Data guru tidak ditemukan" }
+  if (guru) {
+    cookieStore.set("guru_id", guru.id.toString(), {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24,
+    });
   }
 
-  cookieStore.set("guru_id", guru.id.toString(), {
-    httpOnly: false,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24,
-  })
+  // ⛔ TIDAK ADA return error DI SINI
 }
+
+
 if (userRole === "siswa") {
   const { data: siswa } = await supabase
     .from("siswa")

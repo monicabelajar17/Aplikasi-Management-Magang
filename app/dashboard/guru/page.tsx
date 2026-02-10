@@ -1,237 +1,109 @@
-import {
-  Users,
-  Building,
-  GraduationCap,
-  BookOpen,
-  ClipboardList
-} from "lucide-react"
-import { getGuruDashboardData } from "./action"
+// page.tsx
+import React from "react";
+import { Users, Building, GraduationCap, BookOpen } from "lucide-react";
+import { StatCard } from "./stat-cards";
+import { RecentMagangSection } from "./recent-magang";
+import { RecentLogbooksSection } from "./recent-logbooks";
+import { ActiveDudiSection } from "./active-dudi";
+import { 
+  getGuruId, 
+  getDashboardStats, 
+  getRecentMagang, 
+  getRecentLogbooks, 
+  getActiveDudi 
+} from "./data-fetching";
 
 export default async function GuruDashboardPage() {
-  const data = await getGuruDashboardData()
+  try {
+    const guruId = await getGuruId();
+    
+    // Fetch data secara paralel
+    const [
+      stats,
+      recentMagang,
+      recentLogbooks,
+      activeDudi
+    ] = await Promise.all([
+      getDashboardStats(guruId),
+      getRecentMagang(guruId),
+      getRecentLogbooks(guruId),
+      getActiveDudi(guruId)
+    ]);
 
-  const { stats, recentMagang, recentLogbooks, dudiAktif } = data
-  const { totalSiswa, totalDudi, siswaMagang, logbookToday } = stats
-  return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-extrabold text-[#0A2659]">
-          Dashboard Guru
-        </h1>
-        <p className="text-slate-500 mt-1">
-          Ringkasan aktivitas pemantauan magang siswa
-        </p>
-      </div>
-
-      {/* STAT CARD */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="Total Siswa"
-          value={totalSiswa?.toString() || "0"}
-          sub="Siswa terdaftar"
-          icon={<Users className="text-cyan-500" />}
-        />
-        <StatCard
-          title="DUDI Partner"
-          value={totalDudi?.toString() || "0"}
-          sub="Perusahaan mitra"
-          icon={<Building className="text-blue-500" />}
-        />
-        <StatCard
-          title="Siswa Magang"
-          value={siswaMagang?.toString() || "0"}
-          sub="Aktif magang"
-          icon={<GraduationCap className="text-indigo-500" />}
-        />
-        <StatCard
-          title="Logbook Hari Ini"
-          value={logbookToday?.toString() || "0"}
-          sub="Laporan masuk"
-          icon={<BookOpen className="text-emerald-500" />}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* MAGANG & LOGBOOK */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* MAGANG TERBARU */}
-          <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <div className="flex items-center gap-2 mb-6">
-              <GraduationCap className="text-cyan-500" size={20} />
-              <h3 className="font-bold text-[#0A2659]">
-                Magang Terbaru
-              </h3>
-            </div>
-
-            <div className="space-y-4">
-              {recentMagang?.map((m: any) => (
-                <ListMember
-                  key={m.id}
-                  name={m.siswa?.nama}
-                  company={m.dudi?.nama_perusahaan}
-                  date={`${m.tanggal_mulai} - ${m.tanggal_selesai}`}
-                  badge={m.status}
-                />
-              ))}
-            </div>
-          </section>
-
-          {/* LOGBOOK TERBARU */}
-          <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <div className="flex items-center gap-2 mb-6">
-              <ClipboardList className="text-emerald-500" size={20} />
-              <h3 className="font-bold text-[#0A2659]">
-                Logbook Terbaru
-              </h3>
-            </div>
-
-            <div className="space-y-4">
-              {recentLogbooks?.map((log: any) => (
-                <LogbookItem
-                  key={log.id}
-                  studentName={log.magang?.siswa?.nama}
-                  title={log.kegiatan}
-                  date={log.tanggal}
-                  status={log.status_verifikasi}
-                  statusColor={
-                    log.status_verifikasi === "disetujui"
-                      ? "bg-emerald-100 text-emerald-600"
-                      : "bg-amber-100 text-amber-600"
-                  }
-                  kendala={log.kendala || "Tidak ada kendala"}
-                />
-              ))}
-            </div>
-          </section>
-        </div>
-
-        {/* DUDI AKTIF */}
-        <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-          <div className="flex items-center gap-2 mb-6">
-            <Building className="text-orange-500" size={20} />
-            <h3 className="font-bold text-[#0A2659]">
-              DUDI Aktif
-            </h3>
-          </div>
-
-          <div className="space-y-4">
-            {dudiAktif?.map((dudi: any) => (
-              <DudiItem
-                key={dudi.id}
-                name={dudi.nama_perusahaan}
-                address={dudi.alamat}
-                count={dudi.siswa_count}
-              />
-            ))}
-          </div>
-        </section>
-      </div>
-    </div>
-  )
-}
-// ======================
-// KOMPONEN PENDUKUNG
-// ======================
-
-function StatCard({ title, value, sub, icon }: any) {
-  return (
-    <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-      <div className="flex justify-between items-start mb-4">
-        <p className="text-slate-500 text-sm font-medium">{title}</p>
-        <div className="bg-slate-50 p-2 rounded-lg">{icon}</div>
-      </div>
-      <h2 className="text-3xl font-extrabold text-[#0A2659] mb-1">
-        {value}
-      </h2>
-      <p className="text-[10px] text-slate-400 font-medium">{sub}</p>
-    </div>
-  )
-}
-
-function ListMember({ name, company, date, badge }: any) {
-  // Logika warna berdasarkan status
-  const getStatusStyle = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'berlangsung':
-        return 'bg-amber-100 text-amber-700';
-      case 'selesai':
-        return 'bg-emerald-100 text-emerald-700';
-      case 'menunggu':
-        return 'bg-slate-100 text-slate-700';
-      default:
-        return 'bg-lime-100 text-lime-700';
-    }
-  };
-
-  return (
-    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
-      <div className="flex items-center gap-4">
-        <div className="h-10 w-10 bg-cyan-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-          {name?.charAt(0)}
-        </div>
+    return (
+      <div className="space-y-8">
         <div>
-          <p className="font-bold text-slate-800 text-sm">{name}</p>
-          <p className="text-[11px] text-slate-500">{company}</p>
-          <p className="text-[10px] text-slate-400">{date}</p>
-        </div>
-      </div>
-      {/* Gunakan fungsi style di sini */}
-      <span className={`text-[10px] px-2 py-1 rounded-md font-bold uppercase ${getStatusStyle(badge)}`}>
-        {badge}
-      </span>
-    </div>
-  )
-}
-
-function LogbookItem({
-  studentName,
-  title,
-  date,
-  status,
-  statusColor,
-  kendala
-}: any) {
-  return (
-    <div className="p-4 border border-slate-100 rounded-xl space-y-2">
-      <div className="flex justify-between items-start gap-4">
-        <div>
-          <p className="text-[10px] font-bold text-cyan-600 mb-1">
-            {studentName?.toUpperCase()}
+          <h1 className="text-3xl font-extrabold text-[#0A2659]">
+            Dashboard Guru
+          </h1>
+          <p className="text-slate-500 mt-1">
+            Ringkasan aktivitas pemantauan magang siswa
           </p>
-          <h4 className="text-sm font-semibold text-slate-700">
-            {title}
-          </h4>
         </div>
-        <span
-          className={`text-[10px] px-2 py-1 rounded-md font-bold uppercase ${statusColor}`}
-        >
-          {status}
-        </span>
-      </div>
 
-      <div className="text-[10px] text-slate-400 flex items-center gap-2">
-        <BookOpen size={12} /> {date}
-      </div>
+        {/* STAT CARD */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatCard
+            title="Total Siswa"
+            value={stats.totalSiswa.toString()}
+            sub="Siswa terdaftar"
+            icon={<Users className="text-cyan-500" />}
+          />
+          <StatCard
+            title="DUDI Partner"
+            value={stats.totalDudi.toString()}
+            sub="Perusahaan mitra"
+            icon={<Building className="text-blue-500" />}
+          />
+          <StatCard
+            title="Siswa Magang"
+            value={stats.siswaMagang.toString()}
+            sub="Aktif magang"
+            icon={<GraduationCap className="text-indigo-500" />}
+          />
+          <StatCard
+            title="Logbook Hari Ini"
+            value={stats.logbookToday.toString()}
+            sub="Laporan masuk"
+            icon={<BookOpen className="text-emerald-500" />}
+          />
+        </div>
 
-      <p className="text-[11px] text-orange-500 italic font-medium">
-        Kendala: {kendala}
-      </p>
-    </div>
-  )
-}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* MAGANG & LOGBOOK */}
+          <div className="lg:col-span-2 space-y-6">
+            <RecentMagangSection data={recentMagang} />
+            <RecentLogbooksSection data={recentLogbooks} />
+          </div>
 
-function DudiItem({ name, address, count }: any) {
-  return (
-    <div className="flex justify-between items-center py-2 border-b border-slate-50 last:border-0">
-      <div>
-        <p className="text-sm font-bold text-slate-700">{name}</p>
-        <p className="text-[10px] text-slate-400 truncate w-40">
-          {address}
-        </p>
+          {/* DUDI AKTIF */}
+          <ActiveDudiSection data={activeDudi} />
+        </div>
       </div>
-      <span className="bg-lime-500 text-white text-[10px] px-2 py-0.5 rounded font-bold">
-        {count} siswa
-      </span>
-    </div>
-  )
+    );
+  } catch (error) {
+    console.error("Error in GuruDashboardPage:", error);
+    
+    return (
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-3xl font-extrabold text-[#0A2659]">
+            Dashboard Guru
+          </h1>
+          <p className="text-slate-500 mt-1">
+            Ringkasan aktivitas pemantauan magang siswa
+          </p>
+        </div>
+        
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
+          <p className="text-red-600 font-medium">
+            Terjadi kesalahan saat memuat data. Silakan refresh halaman atau hubungi administrator.
+          </p>
+          <p className="text-sm text-red-500 mt-2">
+            {error instanceof Error ? error.message : "Unknown error"}
+          </p>
+        </div>
+      </div>
+    );
+  }
 }
