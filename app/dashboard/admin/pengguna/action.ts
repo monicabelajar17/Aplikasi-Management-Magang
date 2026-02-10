@@ -1,25 +1,29 @@
-"use server"
+//semua fungsi yang berurusan dengan Supabase
+import { createClient } from "@/utils/supabase/client";
+import { User, UserFormData } from "./type";
 
-import { createClient } from "@/utils/supabase/server"
-import { revalidatePath } from "next/cache"
+const supabase = createClient();
 
-// 1. Ambil Semua User
-export async function getUsers() {
-  const supabase = await createClient()
+export async function fetchUsers(): Promise<User[]> {
   const { data, error } = await supabase
     .from('users')
     .select('*')
-    .order('id', { ascending: true })
-
-  if (error) throw new Error(error.message)
-  return data
+    .order('id', { ascending: true });
+  
+  if (error) {
+    console.error("Error fetching users:", error.message);
+    throw error;
+  }
+  
+  return data || [];
 }
 
-// 2. Tambah User & Profil Otomatis
-export async function addUserAction(formData: any) {
-  const supabase = await createClient()
+export async function addUser(formData: UserFormData): Promise<User> {
+  if (formData.password !== formData.confirmPassword) {
+    throw new Error("Password tidak cocok!");
+  }
 
-  // Simpan ke tabel users
+  // Insert ke tabel users
   const { data: newUser, error: userError } = await supabase
     .from('users')
     .insert([{ 
@@ -29,60 +33,94 @@ export async function addUserAction(formData: any) {
       password: formData.password 
     }])
     .select()
-    .single()
+    .single();
 
-  if (userError) return { success: false, error: userError.message }
-
-  // Buat profil di tabel pendamping (guru/siswa)
-  if (newUser && (newUser.role === 'guru' || newUser.role === 'siswa')) {
-    const { error: profileError } = await supabase
-      .from(newUser.role)
-      .insert([{ 
-        user_id: newUser.id, 
-        nama: newUser.full_name 
-      }])
-    
-    if (profileError) console.error("Gagal buat profil:", profileError.message)
+  if (userError) {
+    throw userError;
   }
 
-  revalidatePath('/dashboard/admin/users')
-  return { success: true }
+  if (!newUser) {
+    throw new Error("Gagal membuat user");
+  }
+
+  // Jika role adalah guru atau siswa, insert ke tabel pendamping
+  if (newUser.role === 'guru' || newUser.role === 'siswa') {
+    const tableTarget = newUser.role;
+    const { error: profileError } = await supabase
+      .from(tableTarget)
+      .insert([{ 
+        user_id: newUser.id, 
+        nama: newUser.full_name
+      }]);
+    
+    if (profileError) {
+      console.error("Gagal buat profil:", profileError.message);
+    }
+  }
+
+  return newUser;
 }
 
-// 3. Update User & Sinkronisasi Profil
-export async function updateUserAction(id: number, editingUser: any) {
-  const supabase = await createClient()
-
+export async function updateUser(user: User): Promise<void> {
+  // Update tabel users
   const { error: userError } = await supabase
     .from('users')
     .update({ 
-      full_name: editingUser.full_name, 
-      email: editingUser.email, 
-      role: editingUser.role 
+      full_name: user.full_name, 
+      email: user.email, 
+      role: user.role 
     })
-    .eq('id', id)
+    .eq('id', user.id);
 
-  if (userError) return { success: false, error: userError.message }
-
-  // Update otomatis ke tabel pendamping
-  if (editingUser.role === 'guru' || editingUser.role === 'siswa') {
-    await supabase
-      .from(editingUser.role)
-      .update({ nama: editingUser.full_name })
-      .eq('user_id', id)
+  if (userError) {
+    throw userError;
   }
 
-  revalidatePath('/dashboard/admin/users')
-  return { success: true }
+  // Update otomatis ke tabel pendamping
+  if (user.role === 'guru' || user.role === 'siswa') {
+    await supabase
+      .from(user.role)
+      .update({ nama: user.full_name })
+      .eq('user_id', user.id);
+  }
 }
 
-// 4. Hapus User
-export async function deleteUserAction(id: number) {
-  const supabase = await createClient()
-  const { error } = await supabase.from('users').delete().eq('id', id)
+export async function deleteUser(id: number): Promise<void> {
+  const { error } = await supabase
+    .from('users')
+    .delete()
+    .eq('id', id);
 
-  if (error) return { success: false, error: error.message }
+  if (error) {
+    throw error;
+  }
+}
+
+export function validateUserForm(formData: UserFormData): string | null {
+  if (!formData.full_name.trim()) {
+    return "Nama lengkap harus diisi";
+  }
   
-  revalidatePath('/dashboard/admin/users')
-  return { success: true }
+  if (!formData.email.trim()) {
+    return "Email harus diisi";
+  }
+  
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(formData.email)) {
+    return "Format email tidak valid";
+  }
+  
+  if (!formData.password) {
+    return "Password harus diisi";
+  }
+  
+  if (formData.password.length < 6) {
+    return "Password minimal 6 karakter";
+  }
+  
+  if (formData.password !== formData.confirmPassword) {
+    return "Password tidak cocok";
+  }
+  
+  return null;
 }

@@ -1,12 +1,10 @@
-"use server"
+//Berisi semua fungsi yang berinteraksi dengan Supabase (fetchDudi, handleDelete, handleAdd, handleEdit).
+import { createClient } from "@/utils/supabase/client";
+import { Dudi, DudiFormData } from "./types";
 
-import { createClient } from "@/utils/supabase/server"
-import { revalidatePath } from "next/cache"
+const supabase = createClient();
 
-// 1. Fetch data DUDI dengan penghitungan siswa aktif
-export async function getDudiData() {
-  const supabase = await createClient()
-  
+export async function fetchDudi() {
   const { data, error } = await supabase
     .from('dudi')
     .select(`
@@ -17,64 +15,95 @@ export async function getDudiData() {
       )
     `)
     .eq('is_deleted', false)
-    .order('nama_perusahaan', { ascending: true })
+    .order('nama_perusahaan', { ascending: true });
 
   if (error) {
-    throw new Error(error.message)
+    console.error("Error fetch DUDI:", error.message);
+    throw error;
   }
 
-  // Formatting data sebelum dikirim ke client
-  return (data || []).map(dudi => ({
-    ...dudi,
-    jumlah_siswa: (dudi.magang || []).filter(
-      (m: any) => m.status?.toLowerCase().trim() === 'berlangsung'
-    ).length
-  }))
+  if (data) {
+    const formattedData = data.map(dudi => {
+      const aktifMagang = (dudi.magang || []).filter(
+        (m: any) => m.status?.toLowerCase().trim() === 'berlangsung'
+      );
+
+      return {
+        ...dudi,
+        jumlah_siswa: aktifMagang.length
+      };
+    });
+
+    return formattedData;
+  }
+
+  return [];
 }
 
-// 2. Tambah DUDI baru
-export async function createDudiAction(formData: any) {
-  const supabase = await createClient()
-  
-  const { error } = await supabase
+export async function addDudi(formData: DudiFormData) {
+  const { data, error } = await supabase
     .from('dudi')
     .insert([{
-      ...formData,
+      nama_perusahaan: formData.nama_perusahaan,
+      email: formData.email,
+      telepon: formData.telepon,
+      penanggung_jawab: formData.penanggung_jawab,
+      alamat: formData.alamat,
+      status: formData.status,
       is_deleted: false
     }])
+    .select();
 
-  if (error) return { success: false, message: error.message }
-  
-  revalidatePath('/dashboard/admin/dudi')
-  return { success: true }
+  if (error) throw error;
+  return data;
 }
 
-// 3. Update data DUDI
-export async function updateDudiAction(id: string, formData: any) {
-  const supabase = await createClient()
-  
+export async function updateDudi(id: string, formData: DudiFormData) {
   const { error } = await supabase
     .from('dudi')
-    .update(formData)
-    .eq('id', id)
+    .update({
+      nama_perusahaan: formData.nama_perusahaan,
+      email: formData.email,
+      telepon: formData.telepon,
+      penanggung_jawab: formData.penanggung_jawab,
+      alamat: formData.alamat,
+      status: formData.status
+    })
+    .eq('id', id);
 
-  if (error) return { success: false, message: error.message }
-  
-  revalidatePath('/dashboard/admin/dudi')
-  return { success: true }
+  if (error) throw error;
 }
 
-// 4. Soft Delete DUDI
-export async function deleteDudiAction(id: string) {
-  const supabase = await createClient()
-  
+export async function deleteDudi(id: string) {
   const { error } = await supabase
     .from('dudi')
     .update({ is_deleted: true })
-    .eq('id', id)
+    .eq('id', id);
 
-  if (error) return { success: false, message: error.message }
+  if (error) throw error;
+}
+
+export function validateDudiForm(formData: DudiFormData): string | null {
+  if (!formData.nama_perusahaan.trim()) {
+    return 'Nama perusahaan harus diisi';
+  }
   
-  revalidatePath('/dashboard/admin/dudi')
-  return { success: true }
+  if (!formData.email.trim()) {
+    return 'Email harus diisi';
+  }
+  
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(formData.email)) {
+    return 'Format email tidak valid';
+  }
+  
+  if (!formData.telepon.trim()) {
+    return 'Telepon harus diisi';
+  }
+  
+  if (!formData.penanggung_jawab.trim()) {
+    return 'Penanggung jawab harus diisi';
+  }
+  
+  return null;
 }

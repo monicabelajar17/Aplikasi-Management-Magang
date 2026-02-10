@@ -1,46 +1,24 @@
 "use server"
-
 import { createClient } from "@/utils/supabase/server"
 
-export async function getAdminStats() {
+export async function getDashboardData() {
   const supabase = await createClient()
+  const today = new Date().toISOString().split('T')[0]
 
-  const [
-    { count: totalSiswa },
-    { count: totalDudi },
-    { count: siswaMagang },
-    { count: logbookToday }
-  ] = await Promise.all([
-    supabase.from('siswa').select('*', { count: 'exact', head: true }),
-    supabase.from('dudi').select('*', { count: 'exact', head: true }),
-    supabase.from('magang').select('*', { count: 'exact', head: true }).eq('status', 'berlangsung'),
-    supabase.from('logbook').select('*', { count: 'exact', head: true }).eq('tanggal', new Date().toISOString().split('T')[0])
-  ])
+  // Statistik Utama
+  const { count: totalSiswa } = await supabase.from('siswa').select('*', { count: 'exact', head: true })
+  const { count: totalDudi } = await supabase.from('dudi').select('*', { count: 'exact', head: true })
+  const { count: siswaMagang } = await supabase.from('magang').select('*', { count: 'exact', head: true }).eq('status', 'berlangsung')
+  const { count: logbookToday } = await supabase.from('logbook').select('*', { count: 'exact', head: true }).eq('tanggal', today)
 
-  return {
-    totalSiswa: totalSiswa || 0,
-    totalDudi: totalDudi || 0,
-    siswaMagang: siswaMagang || 0,
-    logbookToday: logbookToday || 0
-  }
-}
-
-export async function getRecentActivities() {
-  const supabase = await createClient()
-
-  const { data: recentMagang } = await supabase //array
+  // Magang Terbaru
+  const { data: recentMagang } = await supabase
     .from('magang')
-    .select(
-        `id, 
-        status, 
-        tanggal_mulai, 
-        tanggal_selesai, 
-        siswa ( nama ), 
-        dudi ( nama_perusahaan )`
-    )
+    .select('id, status, tanggal_mulai, tanggal_selesai, siswa(nama), dudi(nama_perusahaan)')
     .order('created_at', { ascending: false })
     .limit(2)
 
+  // Logbook Terbaru
   const { data: recentLogbook } = await supabase
     .from('logbook')
     .select('*')
@@ -48,30 +26,24 @@ export async function getRecentActivities() {
     .limit(1)
     .single()
 
-  return { 
-    recentMagang: recentMagang || [], 
-    recentLogbook 
-  }
-}
-
-export async function getDudiPartners() {
-  const supabase = await createClient()
-
+  // DUDI Aktif & Hitung Siswa
   const { data: dudiAktif } = await supabase.from('dudi').select('*').limit(5)
-
-  if (!dudiAktif) return []
-
-  const dudiWithStudentCount = await Promise.all(
-    dudiAktif.map(async (dudi) => {
+  
+  const dudiWithCount = await Promise.all(
+    (dudiAktif || []).map(async (dudi) => {
       const { count } = await supabase
         .from('magang')
         .select('*', { count: 'exact', head: true })
         .eq('dudi_id', dudi.id)
         .eq('status', 'berlangsung')
-      
       return { ...dudi, siswa_count: count || 0 }
     })
   )
 
-  return dudiWithStudentCount
+  return {
+    stats: { totalSiswa, totalDudi, siswaMagang, logbookToday },
+    recentMagang,
+    recentLogbook,
+    dudiWithCount
+  }
 }
