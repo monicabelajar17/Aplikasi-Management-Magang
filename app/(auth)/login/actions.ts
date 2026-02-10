@@ -101,6 +101,14 @@ cookieStore.set("user_id", user.id.toString(), {
   maxAge: 60 * 60 * 24,
 })
 
+cookieStore.set("role", user.role, {
+  httpOnly: false,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax",
+  path: "/",
+  maxAge: 60 * 60 * 24,
+})
+
 // Simpan full_name (untuk dashboard siswa)
 cookieStore.set("full_name", user.full_name, {
   httpOnly: false, // ⚠️ HARUS false biar client bisa baca
@@ -112,6 +120,12 @@ cookieStore.set("full_name", user.full_name, {
 
   // 5. OPSI A: Direct Redirect berdasarkan Role
   // Pastikan string ini cocok dengan isi kolom 'role' di tabel Supabase-mu
+if (
+  (userRole === "siswa" || userRole === "guru") &&
+  user.profile_completed === false
+) {
+  redirect("/lengkapi-profil")
+}
 
   switch (userRole) {
     case 'admin':
