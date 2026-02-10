@@ -2,145 +2,72 @@
 
 import React, { useState, useEffect } from "react"
 import { 
-  BookOpen, 
-  Search, 
-  Filter, 
-  CheckCircle, 
-  Clock, 
-  XCircle, 
-  Eye, 
-  MessageSquare,
-  ClipboardList,
-  X,
-  AlertCircle,
-  FileText,
-  Download,
-  Edit2
+  BookOpen, Search, CheckCircle, Clock, XCircle, Eye, 
+  MessageSquare, ClipboardList, X, AlertCircle, FileText, Download
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { createClient } from "@/utils/supabase/client" // Pastikan path ini benar
 import { toast } from "sonner"
+import { getJurnalData, verifikasiJurnal } from "./action"
 
 export default function ManajemenJurnalGuru() {
-  const supabase = createClient()
-  
-  // --- STATES ---
   const [jurnals, setJurnals] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedJurnal, setSelectedJurnal] = useState<any>(null)
   const [catatan, setCatatan] = useState("")
+  const [isProcessing, setIsProcessing] = useState(false)
 
-  // --- LOGIKA FETCH DATA ---
-// --- LOGIKA FETCH DATA ---
-// Ganti bagian fetchData di ManajemenJurnalGuru kamu
-const fetchData = async () => {
-  setLoading(true)
-  try {
-    // Fungsi pembantu ambil cookie
-    const getCookie = (name: string) => {
-      const value = `; ${document.cookie}`;
-      const parts = value.split(`; ${name}=`);
-      if (parts.length === 2) return parts.pop()?.split(';').shift();
-    };
-
-    const rawId = getCookie("guru_id");
-    console.log("ID Guru dari Cookie:", rawId); // Cek di console F12
-
-    if (!rawId) {
-      toast.error("Sesi guru tidak ditemukan. Silakan login kembali.");
-      setLoading(false);
-      return;
-    }
-
-    const loggedInGuruId = parseInt(rawId, 10);
-
-    const { data, error } = await supabase
-      .from('logbook')
-      .select(`
-        *,
-        magang!inner (
-          id,
-          guru_id,
-          siswa:siswa_id (nama, nis, kelas)
-        )
-      `)
-      .eq('magang.guru_id', loggedInGuruId)
-      .eq('is_deleted', false)
-      .order('tanggal', { ascending: false });
-
-    if (error) throw error;
-    setJurnals(data || []);
-  } catch (err: any) {
-    console.error("Fetch Error:", err);
-    toast.error("Gagal memuat data");
-  } finally {
-    setLoading(false);
+  const loadData = async () => {
+    setLoading(true)
+    const res = await getJurnalData()
+    if (res.error) toast.error(res.error)
+    setJurnals(res.data)
+    setLoading(false)
   }
-};
 
-  // 4. Gunakan useEffect untuk memanggil fetchData saat halaman dimuat
   useEffect(() => {
-    fetchData()
+    loadData()
   }, [])
 
-  // --- HANDLER VERIFIKASI ---
- const handleVerifikasi = async (status: 'diterima' | 'ditolak') => {
-    if (!selectedJurnal) return;
+  const handleVerifikasi = async (status: 'diterima' | 'ditolak') => {
+    if (!selectedJurnal) return
+    setIsProcessing(true)
     
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from('logbook')
-        .update({ 
-          status_verifikasi: status,
-          catatan_guru: catatan || null // Pastikan mengirim null jika kosong
-        })
-        .eq('id', selectedJurnal.id);
+    const res = await verifikasiJurnal(selectedJurnal.id, status, catatan)
+    
+    if (res.success) {
+      toast.success(`Jurnal berhasil ${status === 'diterima' ? 'disetujui' : 'ditolak'}`)
+      setModalOpen(false)
+      loadData()
+    } else {
+      toast.error(res.error)
+    }
+    setIsProcessing(false)
+  }
 
-      if (error) throw error;
-      
-      toast.success(`Jurnal berhasil ${status === 'diterima' ? 'diterima' : 'ditolak'}`);
-      setModalOpen(false);
-      fetchData(); // Refresh data tabel
-    } catch (err: any) {
-      console.error("Update Error:", err);
-      toast.error(`Gagal update: ${err.message || "Terjadi kesalahan"}`);
-    } finally {
-      setLoading(false);
+  const handleDownload = async (url: string) => {
+    try {
+      const response = await fetch(url)
+      const blob = await response.blob()
+      const blobUrl = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.download = url.split('/').pop() || 'dokumentasi-jurnal'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } catch {
+      window.open(url, '_blank')
     }
   }
 
-const handleDownload = async (url: string) => {
-  try {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    const blobUrl = window.URL.createObjectURL(blob);
-    
-    const link = document.createElement('a');
-    link.href = blobUrl;
-    
-    // Ambil nama file dari URL
-    const fileName = url.split('/').pop() || 'dokumentasi-jurnal';
-    link.download = fileName;
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(blobUrl);
-  } catch (error) {
-    console.error("Download error:", error);
-    toast.error("Gagal mengunduh file secara otomatis");
-    // Fallback jika fetch gagal: buka di tab baru
-    window.open(url, '_blank');
-  }
-};
-
-const openDetail = (data: any) => {
-    setSelectedJurnal(data)
-    setCatatan(data.catatan_guru || "") // Isi feedback lama jika ada
-    setModalOpen(true)
+  // Stats Logic
+  const stats = {
+    total: jurnals.length,
+    pending: jurnals.filter(j => j.status_verifikasi === 'pending').length,
+    diterima: jurnals.filter(j => j.status_verifikasi === 'diterima').length,
+    ditolak: jurnals.filter(j => j.status_verifikasi === 'ditolak').length
   }
 
   const totalLogbook = jurnals.length

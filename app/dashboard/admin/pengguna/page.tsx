@@ -2,185 +2,129 @@
 
 import React, { useEffect, useState } from "react"
 import { 
-  Users, Plus, Search, Mail, Edit, Trash2, CheckCircle2, Loader2 
+  Users, Plus, Search, Mail, Edit, Trash2, CheckCircle2, Loader2,
+  Shield, GraduationCap, User as UserIcon, XCircle
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { createClient } from "@/utils/supabase/client"
-import { Shield, GraduationCap, User as UserIcon } from "lucide-react"
+
+// Pastikan nama file import sesuai, jika nama filenya actions.ts maka ganti ./action jadi ./actions
+import { getUsers, addUserAction, updateUserAction, deleteUserAction } from "./action"
 
 export default function ManajemenUserPage() {
-  const supabase = createClient()
-  
-  // --- STATE UTAMA ---
+  // --- STATE ---
   const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
-
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState("");
-
   const [roleFilter, setRoleFilter] = useState("all")
+  
+  // Modal & Toast States
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [editingUser, setEditingUser] = useState<any>(null)
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
+  
+  // State Toast disesuaikan agar tidak error
+  const [showToast, setShowToast] = useState(false)
+  const [toastMessage, setToastMessage] = useState("")
+  const [toastType, setToastType] = useState("success")
+  
+  const [formData, setFormData] = useState({
+    full_name: '', email: '', role: 'siswa', password: '', confirmPassword: ''
+  })
 
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<any>(null); // Menyimpan data user yang sedang diedit
-  const triggerEdit = (user: any) => {
-  setEditingUser(user);
-  setIsEditModalOpen(true);
-};
-
-const handleUpdateUser = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setLoading(true);
-
-  // 1. Update tabel users
-  const { error: userError } = await supabase
-    .from('users')
-    .update({ 
-      full_name: editingUser.full_name, 
-      email: editingUser.email, 
-      role: editingUser.role 
-    })
-    .eq('id', editingUser.id);
-
-  if (!userError) {
-    // 2. Update otomatis ke tabel pendamping
-    if (editingUser.role === 'guru' || editingUser.role === 'siswa') {
-      await supabase
-        .from(editingUser.role)
-        .update({ nama: editingUser.full_name })
-        .eq('user_id', editingUser.id);
+  // --- FETCH DATA ---
+  const fetchUsersData = async () => {
+    setLoading(true)
+    try {
+      const data = await getUsers()
+      setUsers(data || [])
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
     }
+  }
 
-    setIsEditModalOpen(false);
-    fetchUsers();
-    setToastMessage("Data user & profil diperbarui!");
+  useEffect(() => { fetchUsersData() }, [])
+
+  // --- HELPER FUNCTIONS (Yang Hilang Sebelumnya) ---
+  
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const triggerEdit = (user: any) => {
+    setEditingUser(user);
+    setIsEditModalOpen(true);
+  };
+
+  const triggerDelete = (id: number) => {
+    setSelectedUserId(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const showToastNotification = (message: string, type: "success" | "error" = "success") => {
+    setToastMessage(message);
+    setToastType(type);
     setShowToast(true);
     setTimeout(() => setShowToast(false), 3000);
-  } else {
-    alert("Gagal update: " + userError.message);
-  }
-  setLoading(false);
-};
+  };
 
-  // --- STATE UNTUK MODAL HAPUS ---
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
+  // --- DATABASE HANDLERS ---
 
-  // --- FUNGSI AMBIL DATA ---
-  const fetchUsers = async () => {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .order('id', { ascending: true })
+  const handleAddUser = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (formData.password !== formData.confirmPassword) {
+        alert("Password tidak cocok!")
+        return
+    }
     
-    if (data) setUsers(data)
-    if (error) console.error(error.message)
+    setLoading(true)
+    const res = await addUserAction(formData)
+    if (res.success) {
+      setIsAddModalOpen(false)
+      setFormData({ full_name: '', email: '', role: 'siswa', password: '', confirmPassword: '' })
+      showToastNotification("User berhasil ditambahkan!")
+      fetchUsersData()
+    } else {
+      alert(res.error)
+    }
     setLoading(false)
   }
 
-  useEffect(() => {
-    fetchUsers()
-  }, [])
-
-  // --- FUNGSI SEARCH ---
-  const filteredUsers = users.filter(user => {
-  const matchSearch =
-    user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchTerm.toLowerCase())
-
-  const matchRole =
-    roleFilter === "all" || user.role === roleFilter
-
-  return matchSearch && matchRole
-})
-
-
-  // --- FUNGSI UNTUK MODAL ---
-  const triggerDelete = (id: number) => {
-    setSelectedUserId(id)
-    setIsDeleteModalOpen(true)
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    const res = await updateUserAction(editingUser.id, editingUser)
+    if (res.success) {
+      setIsEditModalOpen(false)
+      showToastNotification("Data user & profil diperbarui!")
+      fetchUsersData()
+    } else {
+      alert(res.error)
+    }
+    setLoading(false)
   }
 
   const confirmDelete = async () => {
-    if (selectedUserId) {
-      const { error } = await supabase.from('users').delete().eq('id', selectedUserId)
-      if (!error) {
-  setUsers(users.filter(u => u.id !== selectedUserId))
-  setIsDeleteModalOpen(false)
-  setSelectedUserId(null)
-
-  setToastMessage("User berhasil dihapus")
-  setShowToast(true)
-  setTimeout(() => setShowToast(false), 3000)
-}
+    if (!selectedUserId) return
+    const res = await deleteUserAction(selectedUserId)
+    if (res.success) {
+      setIsDeleteModalOpen(false)
+      showToastNotification("User berhasil dihapus")
+      fetchUsersData()
     }
   }
 
-  // State untuk Modal Tambah
-const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-
-// State untuk Data Form
-const [formData, setFormData] = useState({
-  full_name: '',
-  email: '',
-  role: 'siswa',
-  password: '',
-  confirmPassword: ''
-});
-
-// Fungsi handle input
-const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-  setFormData({ ...formData, [e.target.name]: e.target.value });
-};
-
-const handleAddUser = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (formData.password !== formData.confirmPassword) {
-    alert("Password tidak cocok!");
-    return;
-  }
-  setLoading(true);
-
-  // 1. Insert ke tabel 'users' dan ambil datanya (.select().single())
-  const { data: newUser, error: userError } = await supabase
-    .from('users')
-    .insert([{ 
-      full_name: formData.full_name, 
-      email: formData.email, 
-      role: formData.role, 
-      password: formData.password 
-    }])
-    .select()
-    .single();
-
-  if (!userError && newUser) {
-    // 2. Jika role adalah guru atau siswa, insert ke tabel pendamping
-    if (newUser.role === 'guru' || newUser.role === 'siswa') {
-      const tableTarget = newUser.role; // akan jadi 'guru' atau 'siswa'
-      const { error: profileError } = await supabase
-        .from(tableTarget)
-        .insert([{ 
-          user_id: newUser.id, 
-          nama: newUser.full_name // Redundansi nama di sini
-        }]);
-      
-      if (profileError) console.error("Gagal buat profil:", profileError.message);
-    }
-
-    setIsAddModalOpen(false);
-    setFormData({ full_name: '', email: '', role: 'siswa', password: '', confirmPassword: '' });
-    fetchUsers();
-    setToastMessage("User & Profil berhasil ditambahkan!");
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
-  } else {
-    alert("Gagal: " + userError?.message);
-  }
-  setLoading(false);
-};
-
+  const filteredUsers = users.filter(user => {
+    const matchSearch = user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        user.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchRole = roleFilter === "all" || user.role === roleFilter
+    return matchSearch && matchRole
+  })
+  
   return (
     <div className="space-y-8 relative"> {/* Tambahkan relative di sini */}
       

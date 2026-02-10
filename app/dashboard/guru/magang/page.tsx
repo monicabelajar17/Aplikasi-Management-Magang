@@ -8,17 +8,20 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { createClient } from "@/utils/supabase/client"
 import { Toaster, toast } from "sonner"
+import { getMagangData, getDropdownOptions, manageMagang } from "./action"
 
 export default function ManajemenMagangGuru() {
-  const supabase = createClient()
+  // --- HOOKS DI SINI (LEVEL ATAS) ---
   const [siswaList, setSiswaList] = useState<any[]>([])
   const [dudiList, setDudiList] = useState<any[]>([])
-  const [currentUser, setCurrentUser] = useState<any>(null)
   const [magangData, setMagangData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  
+  // State User yang tadi bikin error
+  const [guruId, setGuruId] = useState<number | null>(null)
+  const [userName, setUserName] = useState("")
 
   const [modalOpen, setModalOpen] = useState(false)
   const [modalType, setModalType] = useState<"tambah" | "edit" | "hapus">("tambah")
@@ -32,43 +35,53 @@ export default function ManajemenMagangGuru() {
     nilai: ""
   })
 
+  // Load Data Awal
   useEffect(() => {
-    const getInitialData = async () => {
-      const guruIdFromCookie = Cookies.get("guru_id")
-      const fullNameFromCookie = Cookies.get("full_name")
-
-      if (guruIdFromCookie) {
-        const guruIdNumber = Number(guruIdFromCookie)
-        setCurrentUser({ id: guruIdNumber, nama: fullNameFromCookie })
-        fetchMagangData(guruIdNumber)
-        fetchDropdownData()
-      } else {
-        setLoading(false)
-      }
-    }
-    getInitialData()
+    const id = Cookies.get("guru_id")
+    const name = Cookies.get("full_name")
+    if (id) setGuruId(Number(id))
+    if (name) setUserName(name)
+    
+    refreshData()
   }, [])
 
-  async function fetchDropdownData() {
-    const { data: siswa } = await supabase.from('siswa').select('id, nama');
-    const { data: dudi } = await supabase.from('dudi').select('id, nama_perusahaan');
-    setSiswaList(siswa || []);
-    setDudiList(dudi || []);
+  const refreshData = async () => {
+    setLoading(true)
+    const [magangRes, dropRes] = await Promise.all([
+      getMagangData(),
+      getDropdownOptions()
+    ])
+    setMagangData(magangRes.data)
+    setSiswaList(dropRes.siswa)
+    setDudiList(dropRes.dudi)
+    setLoading(false)
   }
 
-  async function fetchMagangData(guruId: number) {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from("magang")
-      .select(`
-        id, status, tanggal_mulai, tanggal_selesai, nilai_akhir,
-        siswa ( id, nama, nis, kelas ), 
-        dudi ( id, nama_perusahaan )
-      `)
-      .eq("guru_id", guruId)
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    // Gunakan guruId dari state yang sudah diset di useEffect
+    if (!guruId) return toast.error("Sesi guru tidak ditemukan")
 
-    if (!error) setMagangData(data || [])
-    setLoading(false)
+    const payload = {
+      siswa_id: Number(formData.siswa_id),
+      dudi_id: Number(formData.dudi_id),
+      guru_id: guruId,
+      tanggal_mulai: formData.tanggal_mulai || null,
+      tanggal_selesai: formData.tanggal_selesai || null,
+      status: formData.status,
+      nilai_akhir: formData.nilai ? Number(formData.nilai) : null 
+    }
+
+    const res = await manageMagang(modalType, payload, selectedData?.id)
+    
+    if (res.success) {
+      toast.success(`Berhasil ${modalType} data`)
+      setModalOpen(false)
+      refreshData()
+    } else {
+      toast.error(res.error)
+    }
   }
 
   const openModal = (type: "tambah" | "edit" | "hapus", data: any = null) => {
@@ -89,42 +102,7 @@ export default function ManajemenMagangGuru() {
     setModalOpen(true)
   }
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const currentGuruId = currentUser?.id;
-    if (!currentGuruId) return toast.error("Sesi berakhir");
-
-    const payload = {
-      siswa_id: Number(formData.siswa_id),
-      dudi_id: Number(formData.dudi_id),
-      guru_id: Number(currentGuruId),
-      tanggal_mulai: formData.tanggal_mulai || null,
-      tanggal_selesai: formData.tanggal_selesai || null,
-      status: formData.status,
-      nilai_akhir: formData.nilai ? Number(formData.nilai) : null 
-    };
-
-    try {
-      if (modalType === "tambah") {
-        const { error } = await supabase.from('magang').insert([payload]);
-        if (error) throw error;
-        toast.success("Berhasil menambahkan penempatan");
-      } else if (modalType === "edit") {
-        const { error } = await supabase.from('magang').update(payload).eq('id', selectedData.id);
-        if (error) throw error;
-        toast.success("Data berhasil diperbarui");
-      } else if (modalType === "hapus") {
-        const { error } = await supabase.from('magang').delete().eq('id', selectedData.id);
-        if (error) throw error;
-        toast.success("Data berhasil dihapus");
-      }
-      setModalOpen(false);
-      fetchMagangData(currentGuruId);
-    } catch (err: any) {
-      toast.error("Gagal: " + err.message);
-    }
-  };
-
+  // Filter logic
   const filteredData = magangData.filter(m => 
     m.siswa?.nama?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     m.dudi?.nama_perusahaan?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -138,7 +116,7 @@ export default function ManajemenMagangGuru() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-extrabold text-[#0A2659]">Manajemen Siswa Magang</h1>
-          <p className="text-slate-500 mt-1">Halo, <b>{currentUser?.nama || "Guru"}</b>. Pantau progres bimbingan Anda.</p>
+          <p className="text-slate-500">Halo, <b>{userName}</b>. Pantau progres bimbingan Anda.</p>
         </div>
         <Button 
           onClick={() => openModal("tambah")}
@@ -239,7 +217,7 @@ export default function ManajemenMagangGuru() {
                       <label className="text-xs font-bold text-slate-600 uppercase">Guru Pembimbing</label>
                       <div className="flex items-center gap-2 p-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-600 font-semibold cursor-not-allowed">
                         <UserCheck size={16} className="text-cyan-600" />
-                        {currentUser?.nama || "Memuat..."}
+                        {userName || "Memuat..."}
                       </div>
                     </div>
                   </div>

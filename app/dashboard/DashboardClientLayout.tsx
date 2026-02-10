@@ -31,7 +31,6 @@ export default function DashboardClientLayout({ children, profile, schoolName }:
     router.push("/login")
     router.refresh()
   }
-
   const [isLogoutOpen, setIsLogoutOpen] = useState(false)
 
   return (
@@ -49,7 +48,6 @@ export default function DashboardClientLayout({ children, profile, schoolName }:
             </p>
           </div>
         </div>
-
         <nav className="flex-1 px-4 space-y-2 mt-4 overflow-y-auto">
           <NavItem 
             icon={<LayoutDashboard size={20}/>} 
@@ -95,7 +93,6 @@ export default function DashboardClientLayout({ children, profile, schoolName }:
             </>
           )}
         </nav>
-
         <div className="p-4 mt-auto border-t border-slate-100">
           <button 
   onClick={() => setIsLogoutOpen(true)}
@@ -115,7 +112,6 @@ export default function DashboardClientLayout({ children, profile, schoolName }:
           </div>
         </div>
       </aside>
-
       {/* MAIN CONTENT */}
       <div className="flex-1 flex flex-col">
         <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-10">
@@ -124,7 +120,6 @@ export default function DashboardClientLayout({ children, profile, schoolName }:
     <h2 className="font-bold text-slate-800 text-sm md:text-base">{schoolName}</h2>
     <p className="text-[10px] text-slate-500 uppercase tracking-widest">Sistem Manajemen Magang</p>
   </div>
-          
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
               {/* BAGIAN YANG ANDA TANYAKAN: Menampilkan nama dari profile */}
@@ -140,7 +135,6 @@ export default function DashboardClientLayout({ children, profile, schoolName }:
 </div>
           </div>
         </header>
-
         <main className="p-8">{children}</main>
       </div>
       {isLogoutOpen && (
@@ -152,7 +146,6 @@ export default function DashboardClientLayout({ children, profile, schoolName }:
       <p className="text-xs text-slate-500 mt-2">
         Apakah kamu yakin ingin keluar dari sistem?
       </p>
-
       <div className="flex gap-3 pt-6">
         <button
           className="flex-1 rounded-xl border border-slate-200 py-2 text-xs font-bold hover:bg-slate-50"
@@ -160,7 +153,6 @@ export default function DashboardClientLayout({ children, profile, schoolName }:
         >
           Batal
         </button>
-
         <button
           className="flex-1 rounded-xl bg-red-500 py-2 text-xs font-bold text-white hover:bg-red-600"
           onClick={handleLogout}
@@ -171,7 +163,6 @@ export default function DashboardClientLayout({ children, profile, schoolName }:
     </div>
   </div>
 )}
-
     </div>
   )
 }

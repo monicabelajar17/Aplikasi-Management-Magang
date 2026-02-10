@@ -2,23 +2,24 @@
 
 import { useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
-
-function getCookie(name: string) {
-  if (typeof document === "undefined") return null
-  const match = document.cookie
-    .split("; ")
-    .find(row => row.startsWith(name + "="))
-  return match ? decodeURIComponent(match.split("=")[1]) : null
-}
+import { getStudentProfile } from "./action"
 
 export default function SiswaDashboardPage() {
   const [fullName, setFullName] = useState("")
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const name = getCookie("full_name")
-    if (name) setFullName(name)
-    setLoading(false)
+    async function loadData() {
+      try {
+        const data = await getStudentProfile()
+        setFullName(data.fullName)
+      } catch (error) {
+        console.error("Gagal memuat profil:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadData()
   }, [])
 
   if (loading) {

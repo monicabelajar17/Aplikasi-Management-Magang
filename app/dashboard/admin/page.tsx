@@ -1,61 +1,13 @@
-import { createClient } from "@/utils/supabase/server"
 import { Users, Building, GraduationCap, BookOpen, MapPin } from "lucide-react"
+import { getAdminStats, getRecentActivities, getDudiPartners } from "./action"
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
-
-  // 1. Ambil Angka Statistik secara Real-time
-  const { count: totalSiswa } = await supabase.from('siswa').select('*', { count: 'exact', head: true })
-  const { count: totalDudi } = await supabase.from('dudi').select('*', { count: 'exact', head: true })
-  const { count: siswaMagang } = await supabase.from('magang').select('*', { count: 'exact', head: true }).eq('status', 'berlangsung')
-  
-  // Ambil jumlah logbook hari ini
-  const today = new Date().toISOString().split('T')[0]
-  const { count: logbookToday } = await supabase.from('logbook').select('*', { count: 'exact', head: true }).eq('tanggal', today)
-
-  // 2. Ambil Magang Terbaru (Join Tabel)
-  const { data: recentMagang } = await supabase
-    .from('magang')
-    .select(`
-  id,
-  status,
-  tanggal_mulai,
-  tanggal_selesai,
-  siswa ( nama ),
-  dudi ( nama_perusahaan )
-`)
-
-    .order('created_at', { ascending: false })
-    .limit(2)
-
-  // 3. Ambil Logbook Paling Baru
-  const { data: recentLogbook } = await supabase
-    .from('logbook')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single()
-
-  const { data: dudiAktif } = await supabase
-    .from('dudi')
-    .select('*')
-    .limit(5)
-
-  // 5. Untuk setiap DUDI, hitung jumlah siswa magang yang BERLANGSUNG
-  const dudiWithStudentCount = await Promise.all(
-    (dudiAktif || []).map(async (dudi) => {
-      const { count } = await supabase
-        .from('magang')
-        .select('*', { count: 'exact', head: true })
-        .eq('dudi_id', dudi.id)
-        .eq('status', 'berlangsung')
-      
-      return {
-        ...dudi,
-        siswa_count: count || 0
-      }
-    })
-  )
+  // Panggil semua action secara paralel agar cepat
+  const [stats, activities, dudiPartners] = await Promise.all([
+    getAdminStats(),
+    getRecentActivities(),
+    getDudiPartners()
+  ])
 
   return (
     <div className="space-y-8">
@@ -66,67 +18,62 @@ export default async function DashboardPage() {
 
       {/* STATS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Total Siswa" value={totalSiswa?.toString() || "0"} sub="Seluruh siswa terdaftar" icon={<Users className="text-cyan-500" />} />
-        <StatCard title="DUDI Partner" value={totalDudi?.toString() || "0"} sub="Perusahaan mitra" icon={<Building className="text-blue-500" />} />
-        <StatCard title="Siswa Magang" value={siswaMagang?.toString() || "0"} sub="Sedang aktif magang" icon={<GraduationCap className="text-indigo-500" />} />
-        <StatCard title="Logbook" value={logbookToday?.toString() || "0"} sub="Laporan hari ini" icon={<BookOpen className="text-emerald-500" />} />
+        <StatCard title="Total Siswa" value={stats.totalSiswa.toString()} sub="Seluruh siswa terdaftar" icon={<Users className="text-cyan-500" />} />
+        <StatCard title="DUDI Partner" value={stats.totalDudi.toString()} sub="Perusahaan mitra" icon={<Building className="text-blue-500" />} />
+        <StatCard title="Siswa Magang" value={stats.siswaMagang.toString()} sub="Sedang aktif magang" icon={<GraduationCap className="text-indigo-500" />} />
+        <StatCard title="Logbook" value={stats.logbookToday.toString()} sub="Laporan hari ini" icon={<BookOpen className="text-emerald-500" />} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* LEFT COL: MAGANG & LOGBOOK */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Section Magang */}
           <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
             <div className="flex items-center gap-2 mb-6">
               <GraduationCap className="text-cyan-500" size={20} />
               <h3 className="font-bold text-[#0A2659]">Magang Terbaru</h3>
             </div>
             <div className="space-y-4">
-              {recentMagang && recentMagang.length > 0 ? recentMagang.map((m: any) => (
+              {activities.recentMagang.length > 0 ? activities.recentMagang.map((m: any) => (
                 <ListMember 
-  key={m.id} 
-  name={m.siswa?.nama || "No Name"} 
-  company={m.dudi?.nama_perusahaan || "No Company"} 
-  date={`${m.tanggal_mulai} - ${m.tanggal_selesai}`} 
-  status={m.status}
-/>
-
+                  key={m.id} 
+                  name={m.siswa?.nama || "No Name"} 
+                  company={m.dudi?.nama_perusahaan || "No Company"} 
+                  date={`${m.tanggal_mulai} - ${m.tanggal_selesai}`} 
+                  status={m.status}
+                />
               )) : <p className="text-sm text-slate-400">Belum ada data magang.</p>}
             </div>
           </section>
 
+          {/* Section Logbook */}
           <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
             <div className="flex items-center gap-2 mb-6">
               <BookOpen className="text-emerald-500" size={20} />
               <h3 className="font-bold text-[#0A2659]">Logbook Terbaru</h3>
             </div>
-            {recentLogbook ? (
+            {activities.recentLogbook ? (
               <div className="p-4 border-l-4 border-emerald-500 bg-emerald-50/30 rounded-r-xl">
                 <div className="flex justify-between items-start">
-                  <p className="font-semibold text-slate-800 text-sm">{recentLogbook.kegiatan}</p>
+                  <p className="font-semibold text-slate-800 text-sm">{activities.recentLogbook.kegiatan}</p>
                   <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full font-bold uppercase">
-                    {recentLogbook.status_verifikasi}
+                    {activities.recentLogbook.status_verifikasi}
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">{recentLogbook.tanggal}</p>
+                <p className="text-[10px] text-slate-400 mt-1">{activities.recentLogbook.tanggal}</p>
               </div>
             ) : <p className="text-sm text-slate-400">Belum ada aktivitas.</p>}
           </section>
         </div>
 
-        {/* RIGHT COL: DUDI PARTNER */}
+        {/* Section DUDI Partner */}
         <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
           <div className="flex items-center gap-2 mb-6">
             <Building className="text-orange-500" size={20} />
             <h3 className="font-bold text-[#0A2659]">DUDI Partner</h3>
           </div>
           <div className="space-y-6">
-            {dudiWithStudentCount && dudiWithStudentCount.length > 0 ? dudiWithStudentCount.map((dudi: any) => (
-              <DudiItem 
-                key={dudi.id}
-                name={dudi.nama_perusahaan} 
-                address={dudi.alamat} 
-                count={dudi.siswa_count} 
-              />
+            {dudiPartners.length > 0 ? dudiPartners.map((dudi: any) => (
+              <DudiItem key={dudi.id} name={dudi.nama_perusahaan} address={dudi.alamat} count={dudi.siswa_count} />
             )) : <p className="text-xs text-slate-400 text-center py-4">Belum ada mitra.</p>}
           </div>
         </section>

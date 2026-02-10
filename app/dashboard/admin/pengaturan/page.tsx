@@ -9,162 +9,105 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { createClient } from "@/utils/supabase/client"
-import { toast } from "sonner" // Pastikan sudah install sonner atau ganti dengan alert biasa
+import { toast } from "sonner"
 import { useRouter } from "next/navigation"
+
+// Import Server Actions
+import { getSchoolSettings, updateSchoolSettings, updateLogoUrl } from "./action"
 
 export default function PengaturanSekolahPage() {
   const supabase = createClient()
+  const router = useRouter()
+  
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
   
-  // State untuk data sekolah
-  const [formData, setFormData] = useState({
-    id: null,
-    nama_sekolah: "",
-    npsn: "",
-    alamat: "",
-    telepon: "",
-    email: "",
-    website: "",
-    kepala_sekolah: "",
-    logo_url: ""
+  const [formData, setFormData] = useState<any>({
+    id: null, nama_sekolah: "", npsn: "", alamat: "", telepon: "", 
+    email: "", website: "", kepala_sekolah: "", logo_url: ""
   })
-  const [originalData, setOriginalData] = useState({
-  id: null,
-  nama_sekolah: "",
-  npsn: "",
-  alamat: "",
-  telepon: "",
-  email: "",
-  website: "",
-  kepala_sekolah: "",
-  logo_url: ""
-})
+  
+  const [originalData, setOriginalData] = useState<any>(null)
 
-  // 1. Ambil data dari Database
+  // 1. Fetch Initial Data
   useEffect(() => {
-    fetchSettings()
+    async function init() {
+      const data = await getSchoolSettings()
+      if (data) {
+        setFormData(data)
+        setOriginalData(data)
+      }
+      setIsLoading(false)
+    }
+    init()
   }, [])
 
-  async function fetchSettings() {
-  const { data, error } = await supabase
-    .from('school_settings')
-    .select('*')
-    .single()
-
-  if (data) {
-    setFormData(data)
-    setOriginalData(data) // Simpan cadangan di sini
-  }
-  setIsLoading(false)
-}
-
-  // 2. Fungsi Update Data
-  const router = useRouter()
-
-async function handleSave() {
-  if (!formData.id) {
-    toast.error("ID data sekolah tidak ditemukan!");
-    return;
-  }
-
-  setIsSaving(true);
-  
-  try {
-    const { error } = await supabase
-      .from('school_settings')
-      .update({
-        nama_sekolah: formData.nama_sekolah,
-        npsn: formData.npsn,
-        alamat: formData.alamat,
-        telepon: formData.telepon,
-        email: formData.email,
-        website: formData.website,
-        kepala_sekolah: formData.kepala_sekolah,
-        updated_at: new Date()
-      })
-      .eq('id', formData.id); // Pastikan ID ini sesuai dengan baris di DB
-
-    if (error) throw error;
-
-    toast.success("Pengaturan sekolah berhasil diperbarui!");
-    setOriginalData(formData);
-    setIsEditing(false);
+  // 2. Handle Save
+  async function handleSave() {
+    if (!formData.id) return toast.error("ID data sekolah tidak ditemukan!")
+    setIsSaving(true)
     
-    // Memberi jeda sedikit sebelum refresh agar toast terlihat
-    setTimeout(() => {
-      router.refresh();
-    }, 500);
-
-  } catch (error: any) {
-    console.error("Error updating:", error);
-    toast.error("Gagal memperbarui data: " + error.message);
-  } finally {
-    setIsSaving(false);
-  }
-}
-
-// Tambahkan state loading khusus upload (opsional agar UX lebih bagus)
-const [isUploading, setIsUploading] = useState(false)
-
-async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-  const file = e.target.files?.[0]
-  if (!file) return
-
-  setIsUploading(true)
-  try {
-    // 1. Validasi File (Maks 2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("Ukuran file terlalu besar! Maksimal 2MB.")
-      return
+    const res = await updateSchoolSettings(formData.id, formData)
+    if (res.success) {
+      toast.success("Pengaturan sekolah berhasil diperbarui!")
+      setOriginalData(formData)
+      setIsEditing(false)
+      setTimeout(() => router.refresh(), 500)
+    } else {
+      toast.error("Gagal: " + res.error)
     }
+    setIsSaving(false)
+  }
 
-    // 2. Upload ke Supabase Storage
-    const fileExt = file.name.split('.').pop()
-    const fileName = `logo-${Math.random()}.${fileExt}`
-    const filePath = `${fileName}`
+  // 3. Handle Upload Logo
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
 
-    const { error: uploadError } = await supabase.storage
-      .from('Gambar Alat') // Ganti dengan nama bucket kamu jika berbeda
-      .upload(filePath, file)
+    setIsUploading(true)
+    try {
+      if (file.size > 2 * 1024 * 1024) throw new Error("Maksimal 2MB.")
 
-    if (uploadError) throw uploadError
+      const fileExt = file.name.split('.').pop()
+      const fileName = `logo-${Math.random()}.${fileExt}`
+      const filePath = `${fileName}`
 
-    // 3. Ambil Public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('Gambar Alat')
-      .getPublicUrl(filePath)
+      const { error: uploadError } = await supabase.storage
+        .from('Gambar Alat')
+        .upload(filePath, file)
 
-    // 4. Update State & Database Langsung
-    setFormData({ ...formData, logo_url: publicUrl })
-    
-    // Opsional: Langsung simpan ke DB agar permanen meskipun user tidak klik tombol "Simpan"
-    if (formData.id) {
-      const { error: dbError } = await supabase
-        .from('school_settings')
-        .update({ logo_url: publicUrl })
-        .eq('id', formData.id)
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('Gambar Alat')
+        .getPublicUrl(filePath)
+
+      setFormData({ ...formData, logo_url: publicUrl })
       
-      if (dbError) throw dbError
-      toast.success("Logo berhasil diperbarui!")
+      if (formData.id) {
+        const res = await updateLogoUrl(formData.id, publicUrl)
+        if (res.success) toast.success("Logo berhasil diperbarui!")
+      }
+    } catch (error: any) {
+      toast.error("Gagal upload: " + error.message)
+    } finally {
+      setIsUploading(false)
     }
-
-  } catch (error: any) {
-    console.error(error)
-    toast.error("Gagal upload: " + error.message)
-  } finally {
-    setIsUploading(false)
   }
-}
 
-function handleCancel() {
-  setFormData(originalData); // Kembalikan isi form ke data asli
-  setIsEditing(false); // Keluar dari mode edit
-  toast.info("Perubahan dibatalkan");
-}
+  function handleCancel() {
+    setFormData(originalData)
+    setIsEditing(false)
+    toast.info("Perubahan dibatalkan")
+  }
 
-  if (isLoading) return <div className="flex h-96 items-center justify-center"><Loader2 className="animate-spin text-cyan-500" /></div>
+  if (isLoading) return (
+    <div className="flex h-96 items-center justify-center">
+      <Loader2 className="animate-spin text-cyan-500" />
+    </div>
+  )
 
   return (
     <div className="space-y-8">

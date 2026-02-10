@@ -1,4 +1,3 @@
-import { createClient } from "@/utils/supabase/server"
 import {
   Users,
   Building,
@@ -6,131 +5,13 @@ import {
   BookOpen,
   ClipboardList
 } from "lucide-react"
-import { cookies } from "next/headers"
+import { getGuruDashboardData } from "./action"
 
 export default async function GuruDashboardPage() {
-  const supabase = await createClient()
+  const data = await getGuruDashboardData()
 
-const {
-  data: { user }
-} = await supabase.auth.getUser()
-
-const { data: guru } = await supabase
-  .from('guru')
-  .select('id')
-  .eq('user_id', user?.id)
-  .single()
-const cookieStore = await cookies()
-  const guruId = Number(cookieStore.get("guru_id")?.value)
-
-  if (!guruId) {
-    throw new Error("Guru belum login")
-  }
-  // ======================
-  // STATISTIK
-  // ======================
-  const { count: totalSiswa } = await supabase
-  .from('siswa')
-  .select('*', { count: 'exact', head: true })
-  .eq('guru_id', guruId)
-
-  const { data: dudiData } = await supabase
-  .from("magang")
-  .select(`
-    dudi_id,
-    siswa!inner ( guru_id )
-  `)
-  .eq("siswa.guru_id", guruId)
-
-const totalDudi = new Set(dudiData?.map(d => d.dudi_id)).size
-
-  const { count: siswaMagang } = await supabase
-  .from("magang")
-  .select(`
-    id,
-    siswa!inner ( guru_id )
-  `, { count: "exact", head: true })
-  .eq("status", "berlangsung")
-  .eq("siswa.guru_id", guruId)
-
-
-  const today = new Date().toISOString().split('T')[0]
-
-const { count: logbookToday } = await supabase
-  .from("logbook")
-  .select(`
-    id,
-    magang!inner (
-      siswa!inner ( guru_id )
-    )
-  `, { count: "exact", head: true })
-  .eq("tanggal", today)
-  .eq("magang.siswa.guru_id", guruId)
-
-  // ======================
-  // MAGANG TERBARU
-  // ======================
-  const { data: recentMagang } = await supabase
-  .from("magang")
-  .select(`
-    id,
-    status,
-    tanggal_mulai,
-    tanggal_selesai,
-    siswa!inner ( nama, guru_id ),
-    dudi ( nama_perusahaan )
-  `)
-  .eq("siswa.guru_id", guruId)
-  .order("created_at", { ascending: false })
-  .limit(2)
-
-
-  // ======================
-  // LOGBOOK TERBARU
-  // ======================
-  const { data: recentLogbooks } = await supabase
-  .from("logbook")
-  .select(`
-    id,
-    kegiatan,
-    tanggal,
-    status_verifikasi,
-    kendala,
-    magang!inner (
-      siswa!inner ( nama, guru_id )
-    )
-  `)
-  .eq("magang.siswa.guru_id", guruId)
-  .order("created_at", { ascending: false })
-  .limit(2)
-
-  // ======================
-  // DUDI AKTIF
-  // ======================
-  const { data: dudiAktif } = await supabase
-  .from("dudi")
-  .select(`
-    id,
-    nama_perusahaan,
-    alamat,
-    magang!inner (
-      id,
-      status,
-      siswa!inner ( guru_id )
-    )
-  `)
-  .eq("magang.status", "berlangsung")
-  .eq("magang.siswa.guru_id", guruId)
-  .eq("is_deleted", false)
-
-  const formattedDudiAktif = dudiAktif?.map(d => ({
-  ...d,
-  siswa_count: d.magang.length
-}))
-
-  // ======================
-  // RENDER
-  // ======================
+  const { stats, recentMagang, recentLogbooks, dudiAktif } = data
+  const { totalSiswa, totalDudi, siswaMagang, logbookToday } = stats
   return (
     <div className="space-y-8">
       <div>
@@ -234,7 +115,7 @@ const { count: logbookToday } = await supabase
           </div>
 
           <div className="space-y-4">
-            {formattedDudiAktif?.map((dudi: any) => (
+            {dudiAktif?.map((dudi: any) => (
               <DudiItem
                 key={dudi.id}
                 name={dudi.nama_perusahaan}

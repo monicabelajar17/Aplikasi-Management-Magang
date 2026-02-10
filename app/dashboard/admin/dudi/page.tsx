@@ -1,284 +1,110 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
-import { createClient } from "@/utils/supabase/client"
 import { 
   Building2, Plus, Search, Mail, Phone, Edit, 
-  Trash2, CheckCircle2, XCircle, Users, Loader2,
-  AlertCircle
+  Trash2, CheckCircle2, XCircle, Users, Loader2, AlertCircle
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
-// --- MAIN PAGE ---
+// Import Server Actions
+import { getDudiData, createDudiAction, updateDudiAction, deleteDudiAction } from "./action"
+
 export default function ManajemenDudiPage() {
-  const supabase = createClient()
   const [dudiList, setDudiList] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  
+  // State Modals
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const [isAddOpen, setIsAddOpen] = useState(false)
+  const [isEditOpen, setIsEditOpen] = useState(false)
   const [dudiToDelete, setDudiToDelete] = useState<any>(null)
-  // Tambahkan di dalam komponen, setelah state lainnya:
-const [submitting, setSubmitting] = useState(false)
+  const [dudiToEdit, setDudiToEdit] = useState<any>(null)
 
-const [isAddOpen, setIsAddOpen] = useState(false)
-const [isEditOpen, setIsEditOpen] = useState(false)
-const [dudiToEdit, setDudiToEdit] = useState<any>(null)
+  // State Toast
+  const [toast, setToast] = useState<any>({ show: false, type: 'success', title: '', message: '' })
 
-// State untuk toast notification
-const [toast, setToast] = useState<{
-  show: boolean;
-  type: 'success' | 'error' | 'warning';
-  title: string;
-  message: string;
-}>({
-  show: false,
-  type: 'success',
-  title: '',
-  message: ''
-})
-
-// Fungsi untuk menampilkan toast
-const showToast = (type: 'success' | 'error' | 'warning', title: string, message: string) => {
-  setToast({
-    show: true,
-    type,
-    title,
-    message
+  const [formData, setFormData] = useState({
+    nama_perusahaan: "", email: "", telepon: "", penanggung_jawab: "", alamat: "", status: "aktif"
   })
-  
-  // Auto hide setelah 3 detik
-  setTimeout(() => {
-    setToast(prev => ({ ...prev, show: false }))
-  }, 3000)
-}
 
-
-
-// State untuk form (bisa dipakai tambah/edit)
-const [formData, setFormData] = useState({
-  nama_perusahaan: "",
-  email: "",
-  telepon: "",
-  penanggung_jawab: "",
-  alamat: "",
-  status: "aktif"
-})
-
+  // --- LOGIKA FETCH ---
   const fetchDudi = async () => {
-  setLoading(true)
-  const { data, error } = await supabase
-  .from('dudi')
-  .select(`
-    *,
-    magang (
-      id,
-      status
-    )
-  `)
-  .eq('is_deleted', false)
-  .order('nama_perusahaan', { ascending: true })
-  
-
-  
-  if (error) {
-    console.error("Error fetch DUDI:", error.message)
-  } else if (data) {
-    const formattedData = data.map(dudi => {
-  const aktifMagang = (dudi.magang || []).filter(
-    (m: any) => m.status?.toLowerCase().trim() === 'berlangsung'
-  )
-
-  return {
-    ...dudi,
-    jumlah_siswa: aktifMagang.length
-  }
-})
-
-
-    setDudiList(formattedData)
-  }
-  setLoading(false)
-}
-
-  useEffect(() => {
-    fetchDudi()
-  }, [])
-
-// Fungsi untuk handle perubahan input form
-const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-  const { name, value } = e.target
-  setFormData(prev => ({
-    ...prev,
-    [name]: value
-  }))
-}
-
-
-
-  // Fungsi untuk menghapus DUDI
-  const handleDelete = async () => {
-  if (!dudiToDelete) return
-
-  try {
-    const { error } = await supabase
-      .from('dudi')
-      .update({ is_deleted: true })
-      .eq('id', dudiToDelete.id)
-
-    if (error) {
-      showToast('error', 'Gagal Menghapus', error.message)
-    } else {
-      showToast('success', 'Berhasil!', `DUDI "${dudiToDelete.nama_perusahaan}" berhasil dihapus`)
-      setIsDeleteOpen(false)
-      setDudiToDelete(null)
-      fetchDudi()
+    setLoading(true)
+    try {
+      const data = await getDudiData()
+      setDudiList(data)
+    } catch (error: any) {
+      showToast('error', 'Gagal memuat data', error.message)
+    } finally {
+      setLoading(false)
     }
-  } catch (error: any) {
-    showToast('error', 'Kesalahan Sistem', error.message)
-  }
-}
-
-// Fungsi untuk menambahkan DUDI baru
-const handleAddSubmit = async () => {
-  // VALIDASI LENGKAP
-  if (!formData.nama_perusahaan.trim()) {
-    showToast('error', 'Validasi Gagal', 'Nama perusahaan harus diisi')
-    return
-  }
-  
-  if (!formData.email.trim()) {
-    showToast('error', 'Validasi Gagal', 'Email harus diisi')
-    return
-  }
-  
-  // Validasi format email
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!emailRegex.test(formData.email)) {
-    showToast('error', 'Validasi Gagal', 'Format email tidak valid')
-    return
-  }
-  
-  if (!formData.telepon.trim()) {
-    showToast('error', 'Validasi Gagal', 'Telepon harus diisi')
-    return
-  }
-  
-  if (!formData.penanggung_jawab.trim()) {
-    showToast('error', 'Validasi Gagal', 'Penanggung jawab harus diisi')
-    return
   }
 
-  setSubmitting(true)
-  try {
-    const { data, error } = await supabase
-      .from('dudi')
-      .insert([{
-        nama_perusahaan: formData.nama_perusahaan,
-        email: formData.email,
-        telepon: formData.telepon,
-        penanggung_jawab: formData.penanggung_jawab,
-        alamat: formData.alamat,
-        status: formData.status,
-        is_deleted: false
-      }])
-      .select()
+  useEffect(() => { fetchDudi() }, [])
 
-    if (error) {
-      showToast('error', 'Gagal Menambahkan', error.message)
-    } else {
-      showToast('success', 'Berhasil!', `DUDI "${formData.nama_perusahaan}" berhasil ditambahkan`)
+  const showToast = (type: 'success' | 'error' | 'warning', title: string, message: string) => {
+    setToast({ show: true, type, title, message })
+    setTimeout(() => setToast((prev: any) => ({ ...prev, show: false })), 3000)
+  }
+
+  // --- HANDLERS ---
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleAddSubmit = async () => {
+    if (!formData.nama_perusahaan || !formData.email) return showToast('error', 'Validasi Gagal', 'Data utama wajib diisi')
+    
+    setSubmitting(true)
+    const result = await createDudiAction(formData)
+    if (result.success) {
+      showToast('success', 'Berhasil!', 'Mitra baru telah didaftarkan')
       setIsAddOpen(false)
-      setFormData({
-        nama_perusahaan: "",
-        email: "",
-        telepon: "",
-        penanggung_jawab: "",
-        alamat: "",
-        status: "aktif"
-      })
       fetchDudi()
-    }
-  } catch (error: any) {
-    showToast('error', 'Kesalahan Sistem', error.message)
-  } finally {
-    setSubmitting(false)
-  }
-}
-
-// Fungsi untuk mengedit DUDI
-const handleEditSubmit = async () => {
-  if (!dudiToEdit) return
-
-  // VALIDASI SAMA SEPERTI TAMBAH
-  if (!formData.nama_perusahaan.trim()) {
-    showToast('error', 'Validasi Gagal', 'Nama perusahaan harus diisi')
-    return
-  }
-  
-  if (!formData.email.trim()) {
-    showToast('error', 'Validasi Gagal', 'Email harus diisi')
-    return
-  }
-  
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!emailRegex.test(formData.email)) {
-    showToast('error', 'Validasi Gagal', 'Format email tidak valid')
-    return
-  }
-  
-  if (!formData.telepon.trim()) {
-    showToast('error', 'Validasi Gagal', 'Telepon harus diisi')
-    return
-  }
-  
-  if (!formData.penanggung_jawab.trim()) {
-    showToast('error', 'Validasi Gagal', 'Penanggung jawab harus diisi')
-    return
-  }
-
-  setSubmitting(true)
-  try {
-    const { error } = await supabase
-      .from('dudi')
-      .update({
-        nama_perusahaan: formData.nama_perusahaan,
-        email: formData.email,
-        telepon: formData.telepon,
-        penanggung_jawab: formData.penanggung_jawab,
-        alamat: formData.alamat,
-        status: formData.status
-      })
-      .eq('id', dudiToEdit.id)
-
-    if (error) {
-      showToast('error', 'Gagal Mengupdate', error.message)
+      setFormData({ nama_perusahaan: "", email: "", telepon: "", penanggung_jawab: "", alamat: "", status: "aktif" })
     } else {
-      showToast('success', 'Berhasil!', `Data "${formData.nama_perusahaan}" berhasil diperbarui`)
-      setIsEditOpen(false)
-      setDudiToEdit(null)
-      fetchDudi()
+      showToast('error', 'Gagal', result.message || "")
     }
-  } catch (error: any) {
-    showToast('error', 'Kesalahan Sistem', error.message)
-  } finally {
     setSubmitting(false)
   }
-}
 
-  // --- LOGIKA STATISTIK ---
+  const handleEditSubmit = async () => {
+    setSubmitting(true)
+    const result = await updateDudiAction(dudiToEdit.id, formData)
+    if (result.success) {
+      showToast('success', 'Berhasil!', 'Data mitra telah diperbarui')
+      setIsEditOpen(false)
+      fetchDudi()
+    } else {
+      showToast('error', 'Gagal', result.message || "")
+    }
+    setSubmitting(false)
+  }
+
+  const handleDelete = async () => {
+    if (!dudiToDelete) return
+    const result = await deleteDudiAction(dudiToDelete.id)
+    if (result.success) {
+      showToast('success', 'Dihapus', `DUDI ${dudiToDelete.nama_perusahaan} berhasil dihapus`)
+      setIsDeleteOpen(false)
+      fetchDudi()
+    } else {
+      showToast('error', 'Gagal', result.message || "")
+    }
+  }
+
+  // Statistik & Filter
   const totalDudi = dudiList.length
   const dudiAktif = dudiList.filter(d => d.status === 'aktif').length
   const dudiTidakAktif = dudiList.filter(d => d.status === 'nonaktif').length
   const totalSiswa = dudiList.reduce((acc, curr) => acc + (curr.jumlah_siswa || 0), 0)
-
-  const filteredDudi = dudiList.filter(d => 
-    d.nama_perusahaan?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    d.penanggung_jawab?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredDudi = dudiList.filter(d => d.nama_perusahaan?.toLowerCase().includes(searchTerm.toLowerCase()))
 
   return (
     <div className="space-y-8">
