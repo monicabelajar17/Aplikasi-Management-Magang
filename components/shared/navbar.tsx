@@ -1,1 +1,0 @@
-//Bar bagian atas yang berisi profil user dan tombol logout.

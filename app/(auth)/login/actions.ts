@@ -119,13 +119,7 @@ cookieStore.set("full_name", user.full_name, {
 })
 
   // 5. OPSI A: Direct Redirect berdasarkan Role
-  // Pastikan string ini cocok dengan isi kolom 'role' di tabel Supabase-mu
-if (
-  (userRole === "siswa" || userRole === "guru") &&
-  user.profile_completed === false
-) {
-  redirect("/lengkapi-profil")
-}
+
 
   switch (userRole) {
     case 'admin':

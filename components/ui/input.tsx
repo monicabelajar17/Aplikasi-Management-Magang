@@ -1,3 +1,4 @@
+//Elemen input teks satu baris. Digunakan untuk form pendaftaran, pencarian, dsb.
 import * as React from "react"
 
 import { cn } from "@/lib/utils"

@@ -1,3 +1,4 @@
+//Variasi dari dialog yang lebih tegas. Digunakan untuk tindakan krusial yang butuh perhatian ekstra, seperti "Hapus Data"
 "use client"
 
 import * as React from "react"

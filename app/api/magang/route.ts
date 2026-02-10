@@ -1,3 +1,4 @@
+//file ini menangani permintaan data untuk fitur "Magang" di alamat domainkamu.com/api/magang.
 import { NextResponse } from "next/server"
 import supabase from "@/lib/supabase"
 

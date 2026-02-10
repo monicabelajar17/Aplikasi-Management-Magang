@@ -1,3 +1,4 @@
+//Menghubungkan Supabase dengan Server Components, Server Actions, dan Route Handlers.
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 

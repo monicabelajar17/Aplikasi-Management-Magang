@@ -1,3 +1,4 @@
+//Ini adalah file yang menangani logika di alamat domainkamu.com/api/dudi.
 import { NextResponse } from "next/server"
 import supabase from "@/lib/supabase"
 

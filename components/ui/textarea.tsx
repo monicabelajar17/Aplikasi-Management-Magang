@@ -1,3 +1,4 @@
+//Mirip input, tapi untuk teks panjang yang bisa di-resize (contoh: kolom komentar atau alamat).
 import * as React from "react"
 
 import { cn } from "@/lib/utils"

@@ -1,3 +1,4 @@
+//Komponen teks untuk keterangan input. Penting untuk aksesibilitas (agar layar pembaca tahu input ini untuk apa).
 "use client"
 
 import * as React from "react"

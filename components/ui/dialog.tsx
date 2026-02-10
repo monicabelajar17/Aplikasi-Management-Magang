@@ -1,3 +1,4 @@
+//Jendela modal yang muncul di atas konten utama. Biasanya digunakan untuk pop-up konfirmasi atau form tambahan.
 "use client"
 
 import * as React from "react"
