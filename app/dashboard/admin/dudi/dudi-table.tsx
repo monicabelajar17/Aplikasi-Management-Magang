@@ -10,9 +10,9 @@ export function TableRow({ dudi, onEditClick, onDeleteClick }: TableRowProps) {
     <tr className="hover:bg-slate-50/50 transition-colors group">
       <td className="px-6 py-5">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 bg-cyan-100 flex items-center justify-center rounded-xl text-cyan-600">
-            <Building2 size={20} />
-          </div>
+          <div className="h-10 w-10 bg-[#0A2659]/10 flex items-center justify-center rounded-xl text-[#0A2659]">
+  <Building2 size={20} />
+</div>
           <div>
             <p className="text-sm font-bold text-slate-800 leading-none">{dudi.nama_perusahaan}</p>
             <p className="text-[10px] text-slate-400 mt-1 truncate max-w-[200px]">{dudi.alamat}</p>

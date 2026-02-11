@@ -227,7 +227,7 @@ export default function ManajemenDudiPage() {
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 border-b border-slate-50">
           <div className="flex items-center gap-2">
-            <Building2 className="text-cyan-500" size={20} />
+            <Building2 className="text-[#0A2659]" size={20} />
             <h3 className="font-bold text-[#0A2659]">Daftar DUDI</h3>
           </div>
           
@@ -245,15 +245,15 @@ export default function ManajemenDudiPage() {
 
             {/* Add Button */}
             <Button 
-              onClick={() => {
-                resetForm();
-                setIsAddOpen(true);
-              }}
-              className="bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl gap-2 shadow-lg shadow-cyan-100"
-            >
-              <Plus size={18} />
-              <span className="hidden sm:inline">Tambah DUDI</span>
-            </Button>
+  onClick={() => {
+    resetForm();
+    setIsAddOpen(true);
+  }}
+  className="bg-[#0A2659] hover:bg-[#0A2659]/90 text-white rounded-xl gap-2 shadow-lg shadow-blue-900/20"
+>
+  <Plus size={18} />
+  <span className="hidden sm:inline">Tambah DUDI</span>
+</Button>
           </div>
         </div>
 

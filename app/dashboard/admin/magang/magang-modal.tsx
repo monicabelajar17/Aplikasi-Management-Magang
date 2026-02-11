@@ -77,7 +77,11 @@ export function MagangModal({
                 required
               >
                 <option value="">Pilih Guru Pembimbing</option>
-                {dropdowns.guru.map(g => <option key={g.id} value={g.id}>{g.nama}</option>)}
+                {dropdowns.guru.map((g) => (
+  <option key={g.id} value={g.id}>
+    {g.nama|| "Nama tidak terbaca"}
+  </option>
+))}
               </select>
             </div>
           </div>

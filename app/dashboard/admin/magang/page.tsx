@@ -85,21 +85,25 @@ export default function DashboardAdminPage() {
     return () => clearTimeout(timer);
   }, [toast.show]);
 
-  const loadDashboardData = async () => {
-    try {
-      const [statsData, magangData] = await Promise.all([
-        fetchDashboardStats(),
-        fetchMagangData()
-      ]);
-      
-      setStats(statsData);
-      setMagangData(magangData);
-    } catch (error) {
-      console.error("Error loading dashboard data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // page.tsx - Ubah loadDashboardData menjadi seperti ini:
+const loadDashboardData = async () => {
+  setLoading(true);
+  try {
+    const [statsData, magangData, dropdownData] = await Promise.all([
+      fetchDashboardStats(),
+      fetchMagangData(),
+      fetchDropdownData() 
+    ]);
+    
+    setStats(statsData);
+    setMagangData(magangData);
+    setDropdowns(dropdownData); // Data guru masuk ke sini
+  } catch (error) {
+    console.error("Error loading dashboard data:", error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Fetch dropdown data for modal
   const loadDropdownData = async () => {
@@ -222,7 +226,7 @@ export default function DashboardAdminPage() {
     <div className="space-y-8">
       {/* 1. HEADER */}
       <div>
-        <h1 className="text-3xl font-extrabold text-[#0A2659]">Dashboard Admin</h1>
+        <h1 className="text-3xl font-extrabold text-[#0A2659]">Manajemen Magang</h1>
         <p className="text-slate-500 mt-1">Kelola pendaftaran dan statistik real-time</p>
       </div>
 

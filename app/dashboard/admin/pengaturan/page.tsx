@@ -62,59 +62,51 @@ export default function PengaturanSekolahPage() {
 
   // 2. Fungsi Update Data
   const handleSave = async () => {
-    if (!formData.id) {
-      toast.error("ID data sekolah tidak ditemukan!");
-      return;
-    }
+  if (!formData.id) {
+    toast.error("ID data sekolah tidak ditemukan!");
+    return;
+  }
 
-    setIsSaving(true);
+  setIsSaving(true);
+  try {
+    // Ini akan menyimpan semua field termasuk logo_url yang baru
+    await updateSchoolSettings(formData); 
     
-    try {
-      await updateSchoolSettings(formData);
-      toast.success("Pengaturan sekolah berhasil diperbarui!");
-      setOriginalData(formData);
-      setIsEditing(false);
-      
-      // Memberi jeda sedikit sebelum refresh agar toast terlihat
-      setTimeout(() => {
-        router.refresh();
-      }, 500);
-
-    } catch (error: any) {
-      console.error("Error updating:", error);
-      toast.error("Gagal memperbarui data: " + error.message);
-    } finally {
-      setIsSaving(false);
-    }
-  };
+    toast.success("Pengaturan sekolah berhasil diperbarui!");
+    setOriginalData(formData); // Sekarang originalData tersinkron dengan logo baru
+    setIsEditing(false);
+    
+    setTimeout(() => {
+      router.refresh();
+    }, 500);
+  } catch (error: any) {
+    toast.error("Gagal memperbarui data: " + error.message);
+  } finally {
+    setIsSaving(false);
+  }
+};
 
   // 3. Fungsi Upload Logo
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
 
-    setIsUploading(true);
-    try {
-      const publicUrl = await uploadLogo(file);
-      
-      // Update state
-      const updatedFormData = { ...formData, logo_url: publicUrl };
-      setFormData(updatedFormData);
-      
-      // Langsung simpan ke DB agar permanen
-      if (formData.id) {
-        await updateLogoInDatabase(formData.id, publicUrl);
-        setOriginalData(updatedFormData);
-        toast.success("Logo berhasil diperbarui!");
-      }
-
-    } catch (error: any) {
-      console.error(error);
-      toast.error("Gagal upload: " + error.message);
-    } finally {
-      setIsUploading(false);
-    }
-  };
+  setIsUploading(true);
+  try {
+    const publicUrl = await uploadLogo(file);
+    
+    // HANYA update state formData agar preview berubah
+    // Jangan panggil updateLogoInDatabase di sini!
+    setFormData(prev => ({ ...prev, logo_url: publicUrl }));
+    
+    toast.success("Logo terpilih. Klik 'Simpan' untuk memperbarui secara permanen.");
+  } catch (error: any) {
+    console.error(error);
+    toast.error("Gagal upload: " + error.message);
+  } finally {
+    setIsUploading(false);
+  }
+};
 
   // 4. Fungsi Hapus Logo
   const handleDeleteLogo = () => {

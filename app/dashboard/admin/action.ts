@@ -26,6 +26,20 @@ export async function getDashboardData() {
     .limit(1)
     .single()
 
+    const { data: guruData } = await supabase
+    .from('guru')
+    .select(`
+      nama,
+      magang(count)
+    `)
+  
+  // Format data agar sesuai dengan kebutuhan library grafik (Recharts)
+  const guruChartData = (guruData || []).map(g => ({
+    name: g.nama,
+    // @ts-ignore - Supabase mengembalikan array untuk count relasi
+    value: g.magang[0]?.count || 0 
+  })).filter(g => g.value > 0)
+
   // DUDI Aktif & Hitung Siswa
   const { data: dudiAktif } = await supabase.from('dudi').select('*').limit(5)
   
@@ -44,6 +58,7 @@ export async function getDashboardData() {
     stats: { totalSiswa, totalDudi, siswaMagang, logbookToday },
     recentMagang,
     recentLogbook,
-    dudiWithCount
+    dudiWithCount,
+    guruChartData
   }
 }
