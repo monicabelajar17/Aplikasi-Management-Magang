@@ -56,5 +56,6 @@ export interface FilterSelectProps {
 export interface JurnalBannerProps {
   hasJournalToday: boolean;
   loading: boolean;
+  isClosed: boolean;
   onAddClick: () => void;
 }

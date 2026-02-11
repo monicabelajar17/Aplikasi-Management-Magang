@@ -1,5 +1,4 @@
-// use-jurnal-siswa.ts
-"use client"
+"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
@@ -13,64 +12,75 @@ export function useJurnalSiswa() {
   const [loading, setLoading] = useState(true);
   const [modalState, setModalState] = useState<ModalState>({
     isOpen: false,
-    mode: 'tambah',
-    selectedData: null
+    mode: "tambah",
+    selectedData: null,
   });
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("Semua Status");
-  const [hasJournalToday, setHasJournalToday] = useState(true);
+  const [statusFilter, setStatusFilter] =
+    useState<"all" | "pending" | "diterima" | "ditolak">("all");
+  const [hasJournalToday, setHasJournalToday] = useState(false);
 
-  // Get siswa ID from cookie
-  const getSiswaId = useCallback((): string | null => {
+  // ======================
+  // GET SISWA ID (NUMBER!)
+  // ======================
+  const getSiswaId = useCallback((): number | null => {
     if (typeof document === "undefined") return null;
-    const cookies = document.cookie.split('; ');
-    const siswaIdCookie = cookies.find(row => row.startsWith('siswa_id='));
-    return siswaIdCookie ? siswaIdCookie.split('=')[1] : null;
+    const cookies = document.cookie.split("; ");
+    const siswaIdCookie = cookies.find((row) =>
+      row.startsWith("siswa_id=")
+    );
+    if (!siswaIdCookie) return null;
+
+    const value = Number(siswaIdCookie.split("=")[1]);
+    return isNaN(value) ? null : value;
   }, []);
 
-  // Fetch jurnal data
+  // ======================
+  // FETCH DATA
+  // ======================
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const loggedInSiswaId = getSiswaId();
 
-    if (!loggedInSiswaId) {
+    const siswaId = getSiswaId();
+    if (!siswaId) {
       setLoading(false);
       return;
     }
 
     try {
-      // Get magang ID for this siswa
-      const { data: magangData, error: magangError } = await supabase
-        .from('magang')
-        .select('id')
-        .eq('siswa_id', loggedInSiswaId)
-        .single();
+      // 🔹 ambil MAGANG TERAKHIR siswa
+      const { data: magang, error: magangError } = await supabase
+        .from("magang")
+        .select("id")
+        .eq("siswa_id", siswaId)
+        .order("id", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (magangError || !magangData) {
-        setJurnals([]);
-        setLoading(false);
-        return;
+      if (magangError || !magang) {
+        throw new Error("Magang tidak ditemukan");
       }
 
-      // Get jurnals for this magang
-      const { data: logbookData, error: logbookError } = await supabase
-        .from('logbook')
-        .select('*')
-        .eq('magang_id', magangData.id)
-        .eq('is_deleted', false)
-        .order('tanggal', { ascending: false });
+      // 🔹 ambil LOGBOOK
+      const { data: logbook, error: logbookError } = await supabase
+        .from("logbook")
+        .select("*")
+        .eq("magang_id", magang.id)
+        .eq("is_deleted", false)
+        .order("tanggal", { ascending: false });
 
-      if (!logbookError && logbookData) {
-        setJurnals(logbookData);
-        
-        // Check if there's a journal for today
-        const today = new Date().toISOString().split('T')[0];
-        const foundToday = logbookData.some(j => j.tanggal === today);
-        setHasJournalToday(!!foundToday);
-      }
+      if (logbookError) throw logbookError;
+
+      setJurnals(logbook ?? []);
+
+      const today = new Date().toISOString().split("T")[0];
+      setHasJournalToday(
+        logbook?.some((j) => j.tanggal === today) ?? false
+      );
     } catch (err) {
-      console.error("Fetch Error:", err);
+      console.error(err);
       toast.error("Gagal memuat data jurnal");
+      setJurnals([]);
     } finally {
       setLoading(false);
     }
@@ -80,137 +90,159 @@ export function useJurnalSiswa() {
     fetchData();
   }, [fetchData]);
 
-  // Calculate statistics
+  // ======================
+  // STATS
+  // ======================
   const stats: JurnalStats = {
     total: jurnals.length,
-    disetujui: jurnals.filter(j => j.status_verifikasi === 'diterima').length,
-    pending: jurnals.filter(j => j.status_verifikasi === 'pending').length,
-    ditolak: jurnals.filter(j => j.status_verifikasi === 'ditolak').length
+    disetujui: jurnals.filter(
+      (j) => j.status_verifikasi === "diterima"
+    ).length,
+    pending: jurnals.filter(
+      (j) => j.status_verifikasi === "pending"
+    ).length,
+    ditolak: jurnals.filter(
+      (j) => j.status_verifikasi === "ditolak"
+    ).length,
   };
 
-  // Handle modal actions
-  const openModal = (mode: ModalState['mode'], data: Jurnal | null = null) => {
-    setModalState({
-      isOpen: true,
-      mode,
-      selectedData: data
-    });
+  // ======================
+  // FILTER
+  // ======================
+  const q = searchQuery.trim().toLowerCase();
+
+  const filteredJurnals = jurnals.filter((j) => {
+    const matchesSearch =
+      q === "" ||
+      j.kegiatan.toLowerCase().includes(q) ||
+      (j.kendala?.toLowerCase() || "").includes(q);
+
+    const matchesStatus =
+      statusFilter === "all" ||
+      j.status_verifikasi === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+
+  // ======================
+  // MODAL
+  // ======================
+  const openModal = (
+    mode: ModalState["mode"],
+    data: Jurnal | null = null
+  ) => {
+    setModalState({ isOpen: true, mode, selectedData: data });
   };
 
   const closeModal = () => {
     setModalState({
       isOpen: false,
-      mode: 'tambah',
-      selectedData: null
+      mode: "tambah",
+      selectedData: null,
     });
   };
 
-  // Handle save (tambah/edit)
+  // ======================
+  // SAVE (TAMBAH / EDIT)
+  // ======================
   const handleSave = async (formData: FormJurnalData) => {
     setLoading(true);
+
     try {
-      let finalFileUrl = formData.lampiran_url || (modalState.selectedData ? modalState.selectedData.file : "");
+      const siswaId = getSiswaId();
+      if (!siswaId) throw new Error("Siswa tidak ditemukan");
 
-      // Upload file if exists
-      if (formData.file) {
-        const file = formData.file;
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Math.random()}.${fileExt}`;
-        const filePath = `jurnal/${fileName}`;
+      const { data: magang, error: magangError } = await supabase
+        .from("magang")
+        .select("id")
+        .eq("siswa_id", siswaId)
+        .order("id", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-        const { error: uploadError } = await supabase.storage
-          .from('Gambar Alat')
-          .upload(filePath, file);
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('Gambar Alat')
-          .getPublicUrl(filePath);
-        
-        finalFileUrl = publicUrl;
+      if (magangError || !magang) {
+        throw new Error("Magang tidak ditemukan");
       }
 
-      // Prepare payload
+      let finalFileUrl =
+        formData.lampiran_url ||
+        modalState.selectedData?.file ||
+        "";
+
+      // upload file jika ada
+      if (formData.file) {
+        const ext = formData.file.name.split(".").pop();
+        const fileName = `${Date.now()}.${ext}`;
+        const filePath = `jurnal/${fileName}`;
+
+        const { error } = await supabase.storage
+          .from("Gambar Alat")
+          .upload(filePath, formData.file);
+
+        if (error) throw error;
+
+        const { data } = supabase.storage
+          .from("Gambar Alat")
+          .getPublicUrl(filePath);
+
+        finalFileUrl = data.publicUrl;
+      }
+
       const payload = {
         tanggal: formData.tanggal,
         kegiatan: formData.kegiatan,
         kendala: formData.kendala,
         file: finalFileUrl,
-        status_verifikasi: 'pending' as const
+        status_verifikasi: "pending" as const,
       };
 
       if (modalState.mode === "edit" && modalState.selectedData) {
-        const { error } = await supabase
-          .from('logbook')
+        await supabase
+          .from("logbook")
           .update(payload)
-          .eq('id', modalState.selectedData.id);
-        
-        if (error) throw error;
-        toast.success("Jurnal berhasil diperbarui!");
+          .eq("id", modalState.selectedData.id);
+
+        toast.success("Jurnal diperbarui");
       } else {
-        // For new jurnal, get magang_id
-        const siswaId = getSiswaId();
-        if (!siswaId) throw new Error("Siswa tidak ditemukan");
+        await supabase.from("logbook").insert([
+          {
+            ...payload,
+            magang_id: magang.id,
+            is_deleted: false,
+          },
+        ]);
 
-        const { data: magang } = await supabase
-          .from('magang')
-          .select('id')
-          .eq('siswa_id', siswaId)
-          .single();
-
-        if (!magang) throw new Error("Data magang tidak ditemukan");
-
-        const { error } = await supabase.from('logbook').insert([{
-          ...payload,
-          magang_id: magang.id,
-          is_deleted: false
-        }]);
-        
-        if (error) throw error;
-        toast.success("Jurnal baru berhasil ditambahkan!");
+        toast.success("Jurnal ditambahkan");
       }
 
       closeModal();
       fetchData();
-    } catch (error: any) {
-      toast.error("Gagal: " + error.message);
-      console.error(error);
+    } catch (err: any) {
+      toast.error(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle delete
+  // ======================
+  // DELETE
+  // ======================
   const handleDelete = async () => {
     if (!modalState.selectedData?.id) return;
-    
-    try {
-      const { error } = await supabase
-        .from('logbook')
-        .update({ is_deleted: true })
-        .eq('id', modalState.selectedData.id);
-      
-      if (error) throw error;
-      
-      toast.success("Jurnal berhasil dihapus");
-      closeModal();
-      fetchData();
-    } catch (error: any) {
-      toast.error("Gagal menghapus: " + error.message);
-    }
+
+    await supabase
+      .from("logbook")
+      .update({ is_deleted: true })
+      .eq("id", modalState.selectedData.id);
+
+    toast.success("Jurnal dihapus");
+    closeModal();
+    fetchData();
   };
 
-  // Filter jurnals
-  const filteredJurnals = jurnals.filter(j => {
-    const matchesSearch = j.kegiatan.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          (j.kendala?.toLowerCase() || "").includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "Semua Status" || j.status_verifikasi === statusFilter.toLowerCase();
-    return matchesSearch && matchesStatus;
-  });
-
   return {
-    jurnals: filteredJurnals,
+    jurnals,
+    filteredJurnals,
     loading,
     modalState,
     stats,
@@ -223,6 +255,6 @@ export function useJurnalSiswa() {
     closeModal,
     handleSave,
     handleDelete,
-    refetch: fetchData
+    refetch: fetchData,
   };
 }
