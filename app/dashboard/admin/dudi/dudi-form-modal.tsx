@@ -83,7 +83,7 @@ export function DudiFormModal({
               Batal
             </Button>
             <Button 
-              className="flex-1 rounded-xl bg-cyan-500 hover:bg-cyan-600" 
+              className="flex-1 rounded-xl bg-[#0A2659] hover:bg-cyan-600" 
               onClick={onSubmit}
               disabled={submitting}
             >

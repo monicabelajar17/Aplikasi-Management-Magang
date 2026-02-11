@@ -178,7 +178,7 @@ export default function ManajemenUserPage() {
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="p-6 border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center gap-2 font-bold text-[#0A2659]">
-            <Users className="text-cyan-500" size={20} /> Daftar User
+            <Users className="text-cyan-[#0A2659]" size={20} /> Daftar User
           </div>
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />

@@ -14,7 +14,7 @@ import { useJurnalSiswa } from "./use-jurnal-siswa";
 const isJournalClosed = () => {
   const now = new Date();
   const hour = now.getHours(); // 0–23
-  const CLOSING_HOUR = 9;
+  const CLOSING_HOUR = 11;
   return hour >= CLOSING_HOUR;
 };
 

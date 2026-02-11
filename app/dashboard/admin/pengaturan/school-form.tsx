@@ -29,11 +29,11 @@ export function SchoolForm({
     <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
       <div className="p-6 border-b border-slate-50 flex justify-between items-center">
         <div className="flex items-center gap-2 font-bold text-[#0A2659]">
-          <Settings className="text-cyan-500" size={20} />
+          <Settings className="text-cyan-[#0A2659]" size={20} />
           Informasi Sekolah
         </div>
         {!isEditing ? (
-          <Button onClick={onToggleEdit} size="sm" className="bg-cyan-500 hover:bg-cyan-600 rounded-xl gap-2">
+          <Button onClick={onToggleEdit} size="sm" className="bg-[#0A2659] hover:bg-cyan-600 rounded-xl gap-2">
             <Edit3 size={14} /> Edit
           </Button>
         ) : (

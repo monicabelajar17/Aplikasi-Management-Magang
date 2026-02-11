@@ -9,7 +9,7 @@ export function SchoolPreview({ formData }: SchoolPreviewProps) {
     <div className="lg:col-span-5 space-y-6">
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6">
         <div className="flex items-center gap-2 font-bold text-[#0A2659] mb-6">
-          <Eye className="text-cyan-500" size={20} />
+          <Eye className="text-cyan-[#0A2659]" size={20} />
           Preview Tampilan
         </div>
 
